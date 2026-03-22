@@ -3,7 +3,6 @@ package config
 const (
 	EnvGRPCAddr       = "GOPHKEEPER_GRPC_ADDR"
 	EnvLogLevel       = "GOPHKEEPER_LOG_LEVEL"
-	EnvEnvironment    = "GOPHKEEPER_ENV"
 	EnvDatabaseURL    = "GOPHKEEPER_DATABASE_URL"
 	EnvMinioEndpoint  = "GOPHKEEPER_MINIO_ENDPOINT"
 	EnvMinioAccessKey = "GOPHKEEPER_MINIO_ACCESS_KEY"
@@ -22,7 +21,6 @@ const (
 const (
 	DefaultGRPCAddr      = "127.0.0.1:50051"
 	DefaultLogLevel      = LogLevelInfo
-	DefaultEnvironment   = "development"
 	DefaultMinioEndpoint = "127.0.0.1:9000"
 	DefaultMinioBucket   = "gophkeeper"
 	DefaultMinioUseSSL   = "false"

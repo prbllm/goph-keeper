@@ -10,7 +10,6 @@ import (
 type Config struct {
 	GRPCAddr       string
 	LogLevel       string // debug | info | warn | error
-	Environment    string
 	DatabaseURL    string
 	MinioEndpoint  string
 	MinioAccessKey string
@@ -24,7 +23,6 @@ func Load() (*Config, error) {
 	cfg := &Config{
 		GRPCAddr:       getEnv(EnvGRPCAddr, DefaultGRPCAddr),
 		LogLevel:       strings.ToLower(getEnv(EnvLogLevel, DefaultLogLevel)),
-		Environment:    strings.ToLower(getEnv(EnvEnvironment, DefaultEnvironment)),
 		DatabaseURL:    strings.TrimSpace(os.Getenv(EnvDatabaseURL)),
 		MinioEndpoint:  strings.TrimSpace(getEnv(EnvMinioEndpoint, DefaultMinioEndpoint)),
 		MinioAccessKey: strings.TrimSpace(os.Getenv(EnvMinioAccessKey)),
