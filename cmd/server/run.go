@@ -36,6 +36,10 @@ func run() error {
 	defer db.Close()
 	logger.Info("postgres ready")
 
+	if err := runMigrations(logger, cfg.DatabaseURL); err != nil {
+		return fmt.Errorf("migrations: %w", err)
+	}
+
 	minioClient, err := s3minio.DefaultConnector.Connect(startCtx, cfg.MinioEndpoint, cfg.MinioAccessKey, cfg.MinioSecretKey, cfg.MinioBucket, cfg.MinioUseSSL)
 	if err != nil {
 		return fmt.Errorf("minio: %w", err)

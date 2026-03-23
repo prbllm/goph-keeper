@@ -11,7 +11,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
-	"google.golang.org/grpc/reflection"
 )
 
 // serverDeps groups runtime dependencies wired at startup for gRPC and services.
@@ -31,13 +30,12 @@ func (healthService) Check(context.Context, *gophkeeperv1.HealthCheckRequest) (*
 }
 
 func newGRPCServer(deps *serverDeps) *grpc.Server {
-	deps.Logger.Debug("gRPC: registering health and reflection")
+	deps.Logger.Debug("gRPC: registering health services")
 
 	s := grpc.NewServer()
 	healthServer := health.NewServer()
 	grpc_health_v1.RegisterHealthServer(s, healthServer)
 	healthServer.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
 	gophkeeperv1.RegisterHealthServiceServer(s, healthService{})
-	reflection.Register(s)
 	return s
 }
