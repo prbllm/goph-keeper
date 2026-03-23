@@ -1,4 +1,4 @@
-package main
+package app
 
 import (
 	"context"
@@ -10,19 +10,23 @@ import (
 	"time"
 
 	"github.com/prbllm/goph-keeper/internal/server/config"
+	"github.com/prbllm/goph-keeper/internal/server/grpcserver"
+	"github.com/prbllm/goph-keeper/internal/server/logging"
+	"github.com/prbllm/goph-keeper/internal/server/migrations"
 	"github.com/prbllm/goph-keeper/internal/server/storage/postgres"
 	"github.com/prbllm/goph-keeper/internal/server/storage/s3minio"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 )
 
-func run() error {
+// Run starts the server runtime and blocks until shutdown.
+func Run() error {
 	cfg, err := config.Load()
 	if err != nil {
 		return fmt.Errorf("config: %w", err)
 	}
 
-	logger, err := newLogger(cfg.LogLevel)
+	logger, err := logging.New(cfg.LogLevel)
 	if err != nil {
 		return fmt.Errorf("logger: %w", err)
 	}
@@ -36,7 +40,7 @@ func run() error {
 	defer db.Close()
 	logger.Info("postgres ready")
 
-	if err := runMigrations(logger, cfg.DatabaseURL); err != nil {
+	if err := migrations.Run(logger, cfg.DatabaseURL); err != nil {
 		return fmt.Errorf("migrations: %w", err)
 	}
 
@@ -46,7 +50,7 @@ func run() error {
 	}
 	logger.Info("minio ready", zap.String("bucket", cfg.MinioBucket))
 
-	deps := &serverDeps{
+	deps := &grpcserver.Deps{
 		Logger: logger,
 		Cfg:    cfg,
 		DB:     db,
@@ -58,7 +62,7 @@ func run() error {
 		return fmt.Errorf("listen %s: %w", cfg.GRPCAddr, err)
 	}
 
-	grpcServer := newGRPCServer(deps)
+	grpcServer := grpcserver.New(deps)
 
 	errCh := make(chan error, 1)
 	go func() {

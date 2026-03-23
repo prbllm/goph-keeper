@@ -1,4 +1,4 @@
-package main
+package grpcserver
 
 import (
 	"context"
@@ -13,8 +13,8 @@ import (
 	"google.golang.org/grpc/health/grpc_health_v1"
 )
 
-// serverDeps groups runtime dependencies wired at startup for gRPC and services.
-type serverDeps struct {
+// Deps groups runtime dependencies wired at startup for gRPC and services.
+type Deps struct {
 	Logger *zap.Logger
 	Cfg    *config.Config
 	DB     postgres.Pool
@@ -29,7 +29,8 @@ func (healthService) Check(context.Context, *gophkeeperv1.HealthCheckRequest) (*
 	return &gophkeeperv1.HealthCheckResponse{Status: "SERVING"}, nil
 }
 
-func newGRPCServer(deps *serverDeps) *grpc.Server {
+// New creates a gRPC server and registers core infra services.
+func New(deps *Deps) *grpc.Server {
 	deps.Logger.Debug("gRPC: registering health services")
 
 	s := grpc.NewServer()
@@ -37,5 +38,6 @@ func newGRPCServer(deps *serverDeps) *grpc.Server {
 	grpc_health_v1.RegisterHealthServer(s, healthServer)
 	healthServer.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
 	gophkeeperv1.RegisterHealthServiceServer(s, healthService{})
+
 	return s
 }

@@ -1,4 +1,4 @@
-package main
+package migrations
 
 import (
 	"errors"
@@ -9,11 +9,11 @@ import (
 	"go.uber.org/zap/zaptest/observer"
 )
 
-func TestHandleMigrateUpResult_NoChange(t *testing.T) {
+func TestHandleUpResult_NoChange(t *testing.T) {
 	core, logs := observer.New(zap.InfoLevel)
 	logger := zap.New(core)
 
-	noChange, err := handleMigrateUpResult(logger, migrate.ErrNoChange)
+	noChange, err := handleUpResult(logger, migrate.ErrNoChange)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -30,11 +30,11 @@ func TestHandleMigrateUpResult_NoChange(t *testing.T) {
 	}
 }
 
-func TestHandleMigrateUpResult_Dirty(t *testing.T) {
+func TestHandleUpResult_Dirty(t *testing.T) {
 	core, logs := observer.New(zap.ErrorLevel)
 	logger := zap.New(core)
 
-	noChange, err := handleMigrateUpResult(logger, migrate.ErrDirty{Version: 7})
+	noChange, err := handleUpResult(logger, migrate.ErrDirty{Version: 7})
 	if err == nil {
 		t.Fatalf("expected error")
 	}
@@ -54,12 +54,12 @@ func TestHandleMigrateUpResult_Dirty(t *testing.T) {
 	}
 }
 
-func TestHandleMigrateUpResult_GenericError(t *testing.T) {
+func TestHandleUpResult_GenericError(t *testing.T) {
 	core, logs := observer.New(zap.ErrorLevel)
 	logger := zap.New(core)
 	upErr := errors.New("boom")
 
-	noChange, err := handleMigrateUpResult(logger, upErr)
+	noChange, err := handleUpResult(logger, upErr)
 	if err == nil {
 		t.Fatalf("expected error")
 	}

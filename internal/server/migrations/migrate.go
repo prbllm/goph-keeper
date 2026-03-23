@@ -1,4 +1,4 @@
-package main
+package migrations
 
 import (
 	"errors"
@@ -7,14 +7,15 @@ import (
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
-	"github.com/prbllm/goph-keeper/migrations"
+	projectmigrations "github.com/prbllm/goph-keeper/migrations"
 	"go.uber.org/zap"
 )
 
-const migrationSourcePath = "server"
+const sourcePath = "server"
 
-func runMigrations(logger *zap.Logger, databaseURL string) error {
-	sourceDriver, err := iofs.New(migrations.ServerFS, migrationSourcePath)
+// Run applies embedded migrations and validates resulting state.
+func Run(logger *zap.Logger, databaseURL string) error {
+	sourceDriver, err := iofs.New(projectmigrations.ServerFS, sourcePath)
 	if err != nil {
 		logger.Error("migrations failed: source init", zap.Error(err))
 		return fmt.Errorf("migrate source: %w", err)
@@ -35,7 +36,7 @@ func runMigrations(logger *zap.Logger, databaseURL string) error {
 		}
 	}()
 
-	noChange, err := handleMigrateUpResult(logger, m.Up())
+	noChange, err := handleUpResult(logger, m.Up())
 	if err != nil {
 		return err
 	}
@@ -62,7 +63,7 @@ func runMigrations(logger *zap.Logger, databaseURL string) error {
 	return nil
 }
 
-func handleMigrateUpResult(logger *zap.Logger, err error) (bool, error) {
+func handleUpResult(logger *zap.Logger, err error) (bool, error) {
 	if err == nil {
 		return false, nil
 	}
