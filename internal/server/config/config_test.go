@@ -13,6 +13,7 @@ func minimalValidEnv(t *testing.T) {
 	t.Setenv(config.EnvDatabaseURL, "postgres://localhost/gophkeeper")
 	t.Setenv(config.EnvMinioAccessKey, "access")
 	t.Setenv(config.EnvMinioSecretKey, "secret")
+	t.Setenv(config.EnvJWTSecret, strings.Repeat("x", config.MinJWTSecretLen))
 }
 
 func TestLoad_success_defaults(t *testing.T) {
@@ -37,6 +38,21 @@ func TestLoad_success_defaults(t *testing.T) {
 	if cfg.MinioUseSSL {
 		t.Error("MinioUseSSL: expected false from default")
 	}
+	if cfg.AccessTTLSec != config.DefaultAccessTTLSec {
+		t.Errorf("AccessTTLSec = %d, want %d", cfg.AccessTTLSec, config.DefaultAccessTTLSec)
+	}
+	if cfg.RefreshTTLSec != config.DefaultRefreshTTLSec {
+		t.Errorf("RefreshTTLSec = %d, want %d", cfg.RefreshTTLSec, config.DefaultRefreshTTLSec)
+	}
+	if cfg.InlineThresholdBytes != config.DefaultInlineThresholdBytes {
+		t.Errorf("InlineThresholdBytes = %d, want %d", cfg.InlineThresholdBytes, config.DefaultInlineThresholdBytes)
+	}
+	if cfg.MaxBlobSizeBytes != config.DefaultMaxBlobSizeBytes {
+		t.Errorf("MaxBlobSizeBytes = %d, want %d", cfg.MaxBlobSizeBytes, config.DefaultMaxBlobSizeBytes)
+	}
+	if cfg.MaxChunkSizeBytes != config.DefaultMaxChunkSizeBytes {
+		t.Errorf("MaxChunkSizeBytes = %d, want %d", cfg.MaxChunkSizeBytes, config.DefaultMaxChunkSizeBytes)
+	}
 }
 
 func TestLoad_success_overrides(t *testing.T) {
@@ -46,6 +62,11 @@ func TestLoad_success_overrides(t *testing.T) {
 	t.Setenv(config.EnvMinioEndpoint, "minio.local:9000")
 	t.Setenv(config.EnvMinioBucket, "custom")
 	t.Setenv(config.EnvMinioUseSSL, "true")
+	t.Setenv(config.EnvAccessTTLSec, "60")
+	t.Setenv(config.EnvRefreshTTLSec, "600")
+	t.Setenv(config.EnvInlineThresholdBytes, "4096")
+	t.Setenv(config.EnvMaxBlobSizeBytes, "2048")
+	t.Setenv(config.EnvMaxChunkSizeBytes, "1024")
 
 	cfg, err := config.Load()
 	if err != nil {
@@ -65,6 +86,21 @@ func TestLoad_success_overrides(t *testing.T) {
 	}
 	if !cfg.MinioUseSSL {
 		t.Error("MinioUseSSL: expected true")
+	}
+	if cfg.AccessTTLSec != 60 {
+		t.Errorf("AccessTTLSec = %d", cfg.AccessTTLSec)
+	}
+	if cfg.RefreshTTLSec != 600 {
+		t.Errorf("RefreshTTLSec = %d", cfg.RefreshTTLSec)
+	}
+	if cfg.InlineThresholdBytes != 4096 {
+		t.Errorf("InlineThresholdBytes = %d", cfg.InlineThresholdBytes)
+	}
+	if cfg.MaxBlobSizeBytes != 2048 {
+		t.Errorf("MaxBlobSizeBytes = %d", cfg.MaxBlobSizeBytes)
+	}
+	if cfg.MaxChunkSizeBytes != 1024 {
+		t.Errorf("MaxChunkSizeBytes = %d", cfg.MaxChunkSizeBytes)
 	}
 }
 
@@ -113,12 +149,56 @@ func TestLoad_errors(t *testing.T) {
 			wantSub: config.EnvDatabaseURL,
 		},
 		{
+			name: "jwt secret missing",
+			prep: func(t *testing.T) {
+				t.Setenv(config.EnvDatabaseURL, "postgres://x/y")
+				t.Setenv(config.EnvMinioAccessKey, "a")
+				t.Setenv(config.EnvMinioSecretKey, "b")
+				t.Setenv(config.EnvJWTSecret, "")
+			},
+			wantSub: config.EnvJWTSecret,
+		},
+		{
+			name: "jwt secret too short",
+			prep: func(t *testing.T) {
+				t.Setenv(config.EnvDatabaseURL, "postgres://x/y")
+				t.Setenv(config.EnvMinioAccessKey, "a")
+				t.Setenv(config.EnvMinioSecretKey, "b")
+				t.Setenv(config.EnvJWTSecret, "short")
+			},
+			wantSub: config.EnvJWTSecret,
+		},
+		{
 			name: "invalid log level",
 			prep: func(t *testing.T) {
 				minimalValidEnv(t)
 				t.Setenv(config.EnvLogLevel, "verbose")
 			},
 			wantSub: config.EnvLogLevel,
+		},
+		{
+			name: "invalid access token ttl",
+			prep: func(t *testing.T) {
+				minimalValidEnv(t)
+				t.Setenv(config.EnvAccessTTLSec, "0")
+			},
+			wantSub: config.EnvAccessTTLSec,
+		},
+		{
+			name: "invalid refresh token ttl",
+			prep: func(t *testing.T) {
+				minimalValidEnv(t)
+				t.Setenv(config.EnvRefreshTTLSec, "abc")
+			},
+			wantSub: config.EnvRefreshTTLSec,
+		},
+		{
+			name: "invalid inline threshold",
+			prep: func(t *testing.T) {
+				minimalValidEnv(t)
+				t.Setenv(config.EnvInlineThresholdBytes, "0")
+			},
+			wantSub: config.EnvInlineThresholdBytes,
 		},
 		{
 			name: "invalid MinioUseSSL",

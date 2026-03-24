@@ -2,8 +2,10 @@ package grpcserver
 
 import (
 	"context"
+	"time"
 
 	gophkeeperv1 "github.com/prbllm/goph-keeper/api/proto/gophkeeper/v1"
+	"github.com/prbllm/goph-keeper/internal/server/auth"
 	"github.com/prbllm/goph-keeper/internal/server/config"
 	"github.com/prbllm/goph-keeper/internal/server/storage/postgres"
 	"github.com/prbllm/goph-keeper/internal/server/storage/s3minio"
@@ -38,6 +40,23 @@ func New(deps *Deps) *grpc.Server {
 	grpc_health_v1.RegisterHealthServer(s, healthServer)
 	healthServer.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
 	gophkeeperv1.RegisterHealthServiceServer(s, healthService{})
+
+	now := time.Now
+	authRepos := postgres.NewAuthRepositories(deps.DB)
+	authService := auth.NewService(
+		authRepos,
+		authRepos.SessionRepository(),
+		authRepos,
+		auth.BcryptHasher{},
+		auth.NewJWTIssuer(deps.Cfg.JWTSecret, now),
+		now,
+		time.Duration(deps.Cfg.AccessTTLSec)*time.Second,
+		time.Duration(deps.Cfg.RefreshTTLSec)*time.Second,
+		deps.Cfg.InlineThresholdBytes,
+		deps.Cfg.MaxBlobSizeBytes,
+		deps.Cfg.MaxChunkSizeBytes,
+	)
+	gophkeeperv1.RegisterAuthServiceServer(s, authHandler{svc: authService})
 
 	return s
 }

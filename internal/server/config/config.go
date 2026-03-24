@@ -3,31 +3,44 @@ package config
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 )
 
 // Config holds server settings loaded from the environment.
 type Config struct {
-	GRPCAddr       string
-	LogLevel       string // debug | info | warn | error
-	DatabaseURL    string
-	MinioEndpoint  string
-	MinioAccessKey string
-	MinioSecretKey string
-	MinioBucket    string
-	MinioUseSSL    bool
+	GRPCAddr             string
+	LogLevel             string // debug | info | warn | error
+	DatabaseURL          string
+	MinioEndpoint        string
+	MinioAccessKey       string
+	MinioSecretKey       string
+	MinioBucket          string
+	MinioUseSSL          bool
+	JWTSecret            string
+	AccessTTLSec         int
+	RefreshTTLSec        int
+	InlineThresholdBytes uint64
+	MaxBlobSizeBytes     uint64
+	MaxChunkSizeBytes    uint64
 }
 
 // Load reads configuration from environment variables.
 func Load() (*Config, error) {
 	cfg := &Config{
-		GRPCAddr:       getEnv(EnvGRPCAddr, DefaultGRPCAddr),
-		LogLevel:       strings.ToLower(getEnv(EnvLogLevel, DefaultLogLevel)),
-		DatabaseURL:    strings.TrimSpace(os.Getenv(EnvDatabaseURL)),
-		MinioEndpoint:  strings.TrimSpace(getEnv(EnvMinioEndpoint, DefaultMinioEndpoint)),
-		MinioAccessKey: strings.TrimSpace(os.Getenv(EnvMinioAccessKey)),
-		MinioSecretKey: strings.TrimSpace(os.Getenv(EnvMinioSecretKey)),
-		MinioBucket:    getEnv(EnvMinioBucket, DefaultMinioBucket),
+		GRPCAddr:             getEnv(EnvGRPCAddr, DefaultGRPCAddr),
+		LogLevel:             strings.ToLower(getEnv(EnvLogLevel, DefaultLogLevel)),
+		DatabaseURL:          strings.TrimSpace(os.Getenv(EnvDatabaseURL)),
+		MinioEndpoint:        strings.TrimSpace(getEnv(EnvMinioEndpoint, DefaultMinioEndpoint)),
+		MinioAccessKey:       strings.TrimSpace(os.Getenv(EnvMinioAccessKey)),
+		MinioSecretKey:       strings.TrimSpace(os.Getenv(EnvMinioSecretKey)),
+		MinioBucket:          getEnv(EnvMinioBucket, DefaultMinioBucket),
+		JWTSecret:            strings.TrimSpace(os.Getenv(EnvJWTSecret)),
+		AccessTTLSec:         DefaultAccessTTLSec,
+		RefreshTTLSec:        DefaultRefreshTTLSec,
+		InlineThresholdBytes: DefaultInlineThresholdBytes,
+		MaxBlobSizeBytes:     DefaultMaxBlobSizeBytes,
+		MaxChunkSizeBytes:    DefaultMaxChunkSizeBytes,
 	}
 	useSSL, err := parseBool(getEnv(EnvMinioUseSSL, DefaultMinioUseSSL))
 	if err != nil {
@@ -50,6 +63,47 @@ func Load() (*Config, error) {
 	}
 	if cfg.MinioAccessKey == "" || cfg.MinioSecretKey == "" {
 		return nil, fmt.Errorf("%s and %s are required", EnvMinioAccessKey, EnvMinioSecretKey)
+	}
+	if cfg.JWTSecret == "" {
+		return nil, fmt.Errorf("%s is required", EnvJWTSecret)
+	}
+	if len(cfg.JWTSecret) < MinJWTSecretLen {
+		return nil, fmt.Errorf("%s must be at least %d bytes", EnvJWTSecret, MinJWTSecretLen)
+	}
+	if v := strings.TrimSpace(os.Getenv(EnvAccessTTLSec)); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil || n <= 0 {
+			return nil, fmt.Errorf("%s must be a positive integer", EnvAccessTTLSec)
+		}
+		cfg.AccessTTLSec = n
+	}
+	if v := strings.TrimSpace(os.Getenv(EnvRefreshTTLSec)); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil || n <= 0 {
+			return nil, fmt.Errorf("%s must be a positive integer", EnvRefreshTTLSec)
+		}
+		cfg.RefreshTTLSec = n
+	}
+	if v := strings.TrimSpace(os.Getenv(EnvInlineThresholdBytes)); v != "" {
+		n, err := strconv.ParseUint(v, 10, 64)
+		if err != nil || n == 0 {
+			return nil, fmt.Errorf("%s must be a positive integer", EnvInlineThresholdBytes)
+		}
+		cfg.InlineThresholdBytes = n
+	}
+	if v := strings.TrimSpace(os.Getenv(EnvMaxBlobSizeBytes)); v != "" {
+		n, err := strconv.ParseUint(v, 10, 64)
+		if err != nil || n == 0 {
+			return nil, fmt.Errorf("%s must be a positive integer", EnvMaxBlobSizeBytes)
+		}
+		cfg.MaxBlobSizeBytes = n
+	}
+	if v := strings.TrimSpace(os.Getenv(EnvMaxChunkSizeBytes)); v != "" {
+		n, err := strconv.ParseUint(v, 10, 64)
+		if err != nil || n == 0 {
+			return nil, fmt.Errorf("%s must be a positive integer", EnvMaxChunkSizeBytes)
+		}
+		cfg.MaxChunkSizeBytes = n
 	}
 	return cfg, nil
 }
