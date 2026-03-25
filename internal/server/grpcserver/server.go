@@ -67,7 +67,19 @@ func New(deps *Deps, tlsCreds credentials.TransportCredentials) (*grpc.Server, e
 
 	deps.Logger.Debug("gRPC: registering health services")
 
-	s := grpc.NewServer(grpc.Creds(tlsCreds))
+	s := grpc.NewServer(
+		grpc.Creds(tlsCreds),
+		grpc.ChainUnaryInterceptor(
+			newLoggingUnaryInterceptor(deps.Logger),
+			newRecoveryUnaryInterceptor(deps.Logger),
+			newAuthUnaryInterceptor(deps.Cfg.JWTSecret),
+		),
+		grpc.ChainStreamInterceptor(
+			newLoggingStreamInterceptor(deps.Logger),
+			newRecoveryStreamInterceptor(deps.Logger),
+			newAuthStreamInterceptor(deps.Cfg.JWTSecret),
+		),
+	)
 	healthServer := health.NewServer()
 	grpc_health_v1.RegisterHealthServer(s, healthServer)
 	healthServer.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
