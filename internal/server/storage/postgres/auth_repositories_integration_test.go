@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/prbllm/goph-keeper/internal/server/migrations"
 	"github.com/prbllm/goph-keeper/internal/server/storage/postgres"
 	"go.uber.org/zap"
+	"golang.org/x/crypto/bcrypt"
 )
 
 func testAuthUser(login string) *auth.User {
@@ -223,5 +225,100 @@ func TestAuthRepositories_RotateRefresh(t *testing.T) {
 	}
 	if !revoked {
 		t.Fatal("expected old refresh token row to be revoked")
+	}
+}
+
+func TestAuthService_registerLoginRefreshLogout(t *testing.T) {
+	repos, _, cleanup := openAuthIntegration(t)
+	defer cleanup()
+	ctx := context.Background()
+
+	fixed := time.Now().UTC().Truncate(time.Second)
+	jwtSecret := strings.Repeat("k", 32)
+	svc := auth.NewService(
+		repos,
+		repos.SessionRepository(),
+		repos,
+		auth.BcryptHasher{Cost: bcrypt.MinCost},
+		auth.NewJWTIssuer(jwtSecret, func() time.Time { return fixed }),
+		func() time.Time { return fixed },
+		15*time.Minute,
+		30*24*time.Hour,
+		65536,
+		104857600,
+		8388608,
+	)
+
+	login := "e2e-" + uuid.NewString()
+	password := "e2e-password-9"
+	deviceID := "e2e-dev-" + uuid.NewString()
+
+	reg, err := svc.Register(ctx, auth.RegisterInput{
+		Login:                  login,
+		Password:               password,
+		PasswordSalt:           []byte("salt"),
+		KDFAlgorithm:           "argon2id",
+		KDFMemoryKiB:           65536,
+		KDFIterations:          3,
+		KDFParallelism:         4,
+		KDFKeyLength:           32,
+		EncryptedVaultKey:      []byte("vk"),
+		EncryptedVaultKeyNonce: []byte("nv"),
+		DeviceID:               deviceID,
+		DeviceName:             "e2e",
+		Platform:               1,
+		ClientVersion:          "1.0",
+	})
+	if err != nil {
+		t.Fatalf("Register: %v", err)
+	}
+	if reg.Login != login || reg.DeviceID != deviceID || reg.AccessToken == "" || reg.RefreshToken == "" {
+		t.Fatalf("unexpected register output: %+v", reg)
+	}
+
+	loginOut, err := svc.Login(ctx, auth.LoginInput{
+		Login:         login,
+		Password:      password,
+		DeviceID:      deviceID,
+		DeviceName:    "e2e",
+		Platform:      1,
+		ClientVersion: "1.0",
+	})
+	if err != nil {
+		t.Fatalf("Login: %v", err)
+	}
+	if loginOut.RefreshToken == "" {
+		t.Fatal("expected refresh token from login")
+	}
+
+	ref1, err := svc.Refresh(ctx, auth.RefreshInput{
+		RefreshToken: loginOut.RefreshToken,
+		DeviceID:     deviceID,
+	})
+	if err != nil {
+		t.Fatalf("Refresh: %v", err)
+	}
+	if ref1.AccessToken == "" || ref1.RefreshToken == "" {
+		t.Fatal("expected new tokens after refresh")
+	}
+	// Refresh tokens are single-use: the pre-rotation token must be invalid immediately.
+	_, err = svc.Refresh(ctx, auth.RefreshInput{
+		RefreshToken: loginOut.RefreshToken,
+		DeviceID:     deviceID,
+	})
+	if !errors.Is(err, auth.ErrUnauthorized) {
+		t.Fatalf("Refresh with old token: %v, want ErrUnauthorized", err)
+	}
+
+	if err := svc.Logout(ctx, ref1.RefreshToken); err != nil {
+		t.Fatalf("Logout: %v", err)
+	}
+
+	_, err = svc.Refresh(ctx, auth.RefreshInput{
+		RefreshToken: ref1.RefreshToken,
+		DeviceID:     deviceID,
+	})
+	if !errors.Is(err, auth.ErrUnauthorized) {
+		t.Fatalf("Refresh after logout: %v, want ErrUnauthorized", err)
 	}
 }

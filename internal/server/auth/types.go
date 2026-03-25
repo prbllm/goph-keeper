@@ -1,5 +1,7 @@
 package auth
 
+//go:generate go tool mockgen -typed -destination=./mocks/mock_auth.go -package=mocks . UserRepository,AuthTx,SessionRepository,PasswordHasher,TokenIssuer
+
 import (
 	"context"
 	"time"
