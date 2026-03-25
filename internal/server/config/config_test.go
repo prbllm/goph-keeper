@@ -53,6 +53,12 @@ func TestLoad_success_defaults(t *testing.T) {
 	if cfg.MaxChunkSizeBytes != config.DefaultMaxChunkSizeBytes {
 		t.Errorf("MaxChunkSizeBytes = %d, want %d", cfg.MaxChunkSizeBytes, config.DefaultMaxChunkSizeBytes)
 	}
+	if cfg.GRPCTLSCertPath != config.DefaultGRPCTLSCertPath {
+		t.Errorf("GRPCTLSCertPath = %q, want %q", cfg.GRPCTLSCertPath, config.DefaultGRPCTLSCertPath)
+	}
+	if cfg.GRPCTLSKeyPath != config.DefaultGRPCTLSKeyPath {
+		t.Errorf("GRPCTLSKeyPath = %q, want %q", cfg.GRPCTLSKeyPath, config.DefaultGRPCTLSKeyPath)
+	}
 }
 
 func TestLoad_success_overrides(t *testing.T) {
@@ -67,6 +73,8 @@ func TestLoad_success_overrides(t *testing.T) {
 	t.Setenv(config.EnvInlineThresholdBytes, "4096")
 	t.Setenv(config.EnvMaxBlobSizeBytes, "2048")
 	t.Setenv(config.EnvMaxChunkSizeBytes, "1024")
+	t.Setenv(config.EnvGRPCTLSCertPath, "/tls/cert.pem")
+	t.Setenv(config.EnvGRPCTLSKeyPath, "/tls/key.pem")
 
 	cfg, err := config.Load()
 	if err != nil {
@@ -101,6 +109,12 @@ func TestLoad_success_overrides(t *testing.T) {
 	}
 	if cfg.MaxChunkSizeBytes != 1024 {
 		t.Errorf("MaxChunkSizeBytes = %d", cfg.MaxChunkSizeBytes)
+	}
+	if cfg.GRPCTLSCertPath != "/tls/cert.pem" {
+		t.Errorf("GRPCTLSCertPath = %q", cfg.GRPCTLSCertPath)
+	}
+	if cfg.GRPCTLSKeyPath != "/tls/key.pem" {
+		t.Errorf("GRPCTLSKeyPath = %q", cfg.GRPCTLSKeyPath)
 	}
 }
 
@@ -233,6 +247,22 @@ func TestLoad_errors(t *testing.T) {
 				t.Setenv(config.EnvMinioSecretKey, "")
 			},
 			wantSub: config.EnvMinioSecretKey,
+		},
+		{
+			name: "grpc tls cert path whitespace only",
+			prep: func(t *testing.T) {
+				minimalValidEnv(t)
+				t.Setenv(config.EnvGRPCTLSCertPath, "   ")
+			},
+			wantSub: config.EnvGRPCTLSCertPath,
+		},
+		{
+			name: "grpc tls key path whitespace only",
+			prep: func(t *testing.T) {
+				minimalValidEnv(t)
+				t.Setenv(config.EnvGRPCTLSKeyPath, "\t")
+			},
+			wantSub: config.EnvGRPCTLSKeyPath,
 		},
 	}
 	for _, tc := range cases {

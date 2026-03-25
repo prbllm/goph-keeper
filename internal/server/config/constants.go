@@ -2,6 +2,8 @@ package config
 
 const (
 	EnvGRPCAddr             = "GOPHKEEPER_GRPC_ADDR"
+	EnvGRPCTLSCertPath      = "GOPHKEEPER_GRPC_TLS_CERT_PATH"
+	EnvGRPCTLSKeyPath       = "GOPHKEEPER_GRPC_TLS_KEY_PATH"
 	EnvLogLevel             = "GOPHKEEPER_LOG_LEVEL"
 	EnvDatabaseURL          = "GOPHKEEPER_DATABASE_URL"
 	EnvMinioEndpoint        = "GOPHKEEPER_MINIO_ENDPOINT"
@@ -25,13 +27,15 @@ const (
 )
 
 const (
-	DefaultGRPCAddr      = "127.0.0.1:50051"
-	DefaultLogLevel      = LogLevelInfo
-	DefaultMinioEndpoint = "127.0.0.1:9000"
-	DefaultMinioBucket   = "gophkeeper"
-	DefaultMinioUseSSL   = "false"
-	DefaultAccessTTLSec  = 900
-	DefaultRefreshTTLSec = 2592000
+	DefaultGRPCAddr        = "127.0.0.1:50051"
+	DefaultGRPCTLSCertPath = "certs/server.crt"
+	DefaultGRPCTLSKeyPath  = "certs/server.key"
+	DefaultLogLevel        = LogLevelInfo
+	DefaultMinioEndpoint   = "127.0.0.1:9000"
+	DefaultMinioBucket     = "gophkeeper"
+	DefaultMinioUseSSL     = "false"
+	DefaultAccessTTLSec    = 900
+	DefaultRefreshTTLSec   = 2592000
 	// Vault/blob limits returned to clients after auth (bytes).
 	DefaultInlineThresholdBytes = 65536
 	DefaultMaxBlobSizeBytes     = 104857600 // 100 MiB

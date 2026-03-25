@@ -32,6 +32,11 @@ func Run() error {
 	}
 	defer func() { _ = logger.Sync() }()
 
+	tlsCreds, err := grpcserver.LoadServerTransportCredentials(cfg)
+	if err != nil {
+		return fmt.Errorf("tls: %w", err)
+	}
+
 	startCtx := context.Background()
 	db, err := postgres.DefaultConnector.OpenPing(startCtx, cfg.DatabaseURL)
 	if err != nil {
@@ -62,7 +67,10 @@ func Run() error {
 		return fmt.Errorf("listen %s: %w", cfg.GRPCAddr, err)
 	}
 
-	grpcServer := grpcserver.New(deps)
+	grpcServer, err := grpcserver.New(deps, tlsCreds)
+	if err != nil {
+		return fmt.Errorf("grpc server: %w", err)
+	}
 
 	errCh := make(chan error, 1)
 	go func() {

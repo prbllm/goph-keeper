@@ -10,6 +10,8 @@ import (
 // Config holds server settings loaded from the environment.
 type Config struct {
 	GRPCAddr             string
+	GRPCTLSCertPath      string
+	GRPCTLSKeyPath       string
 	LogLevel             string // debug | info | warn | error
 	DatabaseURL          string
 	MinioEndpoint        string
@@ -29,6 +31,8 @@ type Config struct {
 func Load() (*Config, error) {
 	cfg := &Config{
 		GRPCAddr:             getEnv(EnvGRPCAddr, DefaultGRPCAddr),
+		GRPCTLSCertPath:      strings.TrimSpace(getEnv(EnvGRPCTLSCertPath, DefaultGRPCTLSCertPath)),
+		GRPCTLSKeyPath:       strings.TrimSpace(getEnv(EnvGRPCTLSKeyPath, DefaultGRPCTLSKeyPath)),
 		LogLevel:             strings.ToLower(getEnv(EnvLogLevel, DefaultLogLevel)),
 		DatabaseURL:          strings.TrimSpace(os.Getenv(EnvDatabaseURL)),
 		MinioEndpoint:        strings.TrimSpace(getEnv(EnvMinioEndpoint, DefaultMinioEndpoint)),
@@ -55,6 +59,12 @@ func Load() (*Config, error) {
 			EnvLogLevel, LogLevelDebug, LogLevelInfo, LogLevelWarn, LogLevelError, cfg.LogLevel)
 	}
 
+	if cfg.GRPCTLSCertPath == "" {
+		return nil, fmt.Errorf("%s must not be empty", EnvGRPCTLSCertPath)
+	}
+	if cfg.GRPCTLSKeyPath == "" {
+		return nil, fmt.Errorf("%s must not be empty", EnvGRPCTLSKeyPath)
+	}
 	if cfg.DatabaseURL == "" {
 		return nil, fmt.Errorf("%s is required", EnvDatabaseURL)
 	}
