@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	"github.com/prbllm/goph-keeper/api"
+	gophkeeperv1 "github.com/prbllm/goph-keeper/api/proto/gophkeeper/v1"
 	"github.com/prbllm/goph-keeper/internal/client/crypto"
 	"github.com/prbllm/goph-keeper/internal/client/mocks"
 	"github.com/prbllm/goph-keeper/internal/client/model"
@@ -36,7 +36,7 @@ func TestAddItem_Success(t *testing.T) {
 	// Мокаем Upsert для сохранения элемента
 	mockStorage.EXPECT().Upsert(gomock.Any()).
 		DoAndReturn(func(item *model.Item) error {
-			assert.Equal(t, api.ItemType_ITEM_TYPE_TEXT, item.Type)
+			assert.Equal(t, gophkeeperv1.ItemType_ITEM_TYPE_TEXT, item.Type)
 			assert.Equal(t, uint64(1), item.Version)
 			assert.False(t, item.Deleted)
 			// Проверяем, что данные зашифрованы
@@ -52,14 +52,14 @@ func TestAddItem_Success(t *testing.T) {
 		DoAndReturn(func(syncState *model.SyncState) error {
 			assert.Len(t, syncState.PendingOperations, 1)
 			op := syncState.PendingOperations[0]
-			assert.Equal(t, api.PendingOperationType_PENDING_OPERATION_TYPE_CREATE, op.Type)
+			assert.Equal(t, gophkeeperv1.PendingOperationType_PENDING_OPERATION_TYPE_CREATE, op.Type)
 			assert.Equal(t, uint64(0), op.ExpectedVersion) // Новая версия = 0
 			return nil
 		}).
 		Times(1)
 
 	// Act
-	err := app.AddItem(api.ItemType_ITEM_TYPE_TEXT, title, metadata, payload)
+	err := app.AddItem(gophkeeperv1.ItemType_ITEM_TYPE_TEXT, title, metadata, payload)
 
 	// Assert
 	assert.NoError(t, err)
@@ -85,7 +85,7 @@ func TestAddItem_NoDEK(t *testing.T) {
 	mockStorage.EXPECT().SaveSync(gomock.Any()).Times(0)
 
 	// Act
-	err := app.AddItem(api.ItemType_ITEM_TYPE_TEXT, []byte("title"), nil, []byte("data"))
+	err := app.AddItem(gophkeeperv1.ItemType_ITEM_TYPE_TEXT, []byte("title"), nil, []byte("data"))
 
 	// Assert
 	assert.Error(t, err)
@@ -107,7 +107,7 @@ func TestAddItem_EncryptError(t *testing.T) {
 	}
 
 	// Act
-	err := app.AddItem(api.ItemType_ITEM_TYPE_TEXT, []byte("title"), nil, []byte("data"))
+	err := app.AddItem(gophkeeperv1.ItemType_ITEM_TYPE_TEXT, []byte("title"), nil, []byte("data"))
 
 	// Assert
 	assert.Error(t, err)
@@ -136,7 +136,7 @@ func TestAddItem_UpsertError(t *testing.T) {
 	mockStorage.EXPECT().SaveSync(gomock.Any()).Times(0)
 
 	// Act
-	err := app.AddItem(api.ItemType_ITEM_TYPE_TEXT, []byte("title"), nil, []byte("data"))
+	err := app.AddItem(gophkeeperv1.ItemType_ITEM_TYPE_TEXT, []byte("title"), nil, []byte("data"))
 
 	// Assert
 	assert.Error(t, err)
@@ -155,8 +155,8 @@ func TestListItems_Success(t *testing.T) {
 	}
 
 	expectedItems := []*model.Item{
-		{ID: "item-1", Version: 1, Type: api.ItemType_ITEM_TYPE_TEXT},
-		{ID: "item-2", Version: 2, Type: api.ItemType_ITEM_TYPE_CREDENTIAL},
+		{ID: "item-1", Version: 1, Type: gophkeeperv1.ItemType_ITEM_TYPE_TEXT},
+		{ID: "item-2", Version: 2, Type: gophkeeperv1.ItemType_ITEM_TYPE_CREDENTIAL},
 	}
 
 	mockStorage.EXPECT().List().
@@ -260,8 +260,8 @@ func TestUpdateItem_Success(t *testing.T) {
 	existingItem := &model.Item{
 		ID:      "item-123",
 		Version: 5,
-		Type:    api.ItemType_ITEM_TYPE_TEXT,
-		Title: &api.EncryptedField{
+		Type:    gophkeeperv1.ItemType_ITEM_TYPE_TEXT,
+		Title: &gophkeeperv1.EncryptedField{
 			Ciphertext: []byte("old-title"),
 			Nonce:      []byte("old-nonce"),
 		},
@@ -275,7 +275,7 @@ func TestUpdateItem_Success(t *testing.T) {
 		DoAndReturn(func(item *model.Item) error {
 			assert.Equal(t, "item-123", item.ID)
 			assert.Equal(t, uint64(6), item.Version) // Версия увеличена
-			assert.Equal(t, api.ItemType_ITEM_TYPE_CREDENTIAL, item.Type)
+			assert.Equal(t, gophkeeperv1.ItemType_ITEM_TYPE_CREDENTIAL, item.Type)
 			return nil
 		}).
 		Times(1)
@@ -284,14 +284,14 @@ func TestUpdateItem_Success(t *testing.T) {
 		DoAndReturn(func(syncState *model.SyncState) error {
 			assert.Len(t, syncState.PendingOperations, 1)
 			op := syncState.PendingOperations[0]
-			assert.Equal(t, api.PendingOperationType_PENDING_OPERATION_TYPE_UPDATE, op.Type)
+			assert.Equal(t, gophkeeperv1.PendingOperationType_PENDING_OPERATION_TYPE_UPDATE, op.Type)
 			assert.Equal(t, uint64(5), op.ExpectedVersion) // Ожидаемая старая версия
 			return nil
 		}).
 		Times(1)
 
 	// Act
-	err := app.UpdateItem("item-123", api.ItemType_ITEM_TYPE_CREDENTIAL, []byte("new-title"), nil, []byte("new-data"))
+	err := app.UpdateItem("item-123", gophkeeperv1.ItemType_ITEM_TYPE_CREDENTIAL, []byte("new-title"), nil, []byte("new-data"))
 
 	// Assert
 	assert.NoError(t, err)
@@ -319,7 +319,7 @@ func TestUpdateItem_NotFound(t *testing.T) {
 	mockStorage.EXPECT().SaveSync(gomock.Any()).Times(0)
 
 	// Act
-	err := app.UpdateItem("non-existent", api.ItemType_ITEM_TYPE_TEXT, []byte("title"), nil, []byte("data"))
+	err := app.UpdateItem("non-existent", gophkeeperv1.ItemType_ITEM_TYPE_TEXT, []byte("title"), nil, []byte("data"))
 
 	// Assert
 	assert.Error(t, err)
@@ -341,7 +341,7 @@ func TestUpdateItem_NoDEK(t *testing.T) {
 	mockStorage.EXPECT().Get(gomock.Any()).Times(0)
 
 	// Act
-	err := app.UpdateItem("item-1", api.ItemType_ITEM_TYPE_TEXT, []byte("title"), nil, []byte("data"))
+	err := app.UpdateItem("item-1", gophkeeperv1.ItemType_ITEM_TYPE_TEXT, []byte("title"), nil, []byte("data"))
 
 	// Assert
 	assert.Error(t, err)
@@ -381,7 +381,7 @@ func TestDeleteItem_Success(t *testing.T) {
 		DoAndReturn(func(syncState *model.SyncState) error {
 			assert.Len(t, syncState.PendingOperations, 1)
 			op := syncState.PendingOperations[0]
-			assert.Equal(t, api.PendingOperationType_PENDING_OPERATION_TYPE_DELETE, op.Type)
+			assert.Equal(t, gophkeeperv1.PendingOperationType_PENDING_OPERATION_TYPE_DELETE, op.Type)
 			assert.Equal(t, uint64(10), op.ExpectedVersion)
 			return nil
 		}).
@@ -446,7 +446,7 @@ func TestDecryptItem_Success(t *testing.T) {
 	item := &model.Item{
 		ID:       "test-item",
 		Version:  1,
-		Type:     api.ItemType_ITEM_TYPE_TEXT,
+		Type:     gophkeeperv1.ItemType_ITEM_TYPE_TEXT,
 		Title:    titleEnc,
 		Metadata: metaEnc,
 		Payload:  payloadEnc,
@@ -470,7 +470,7 @@ func TestDecryptItem_NoDEK(t *testing.T) {
 
 	item := &model.Item{
 		ID: "test",
-		Title: &api.EncryptedField{
+		Title: &gophkeeperv1.EncryptedField{
 			Ciphertext: []byte("cipher"),
 			Nonce:      []byte("nonce"),
 		},
@@ -502,7 +502,7 @@ func TestDecryptItem_InvalidData(t *testing.T) {
 	// Невалидные зашифрованные данные (невозможно расшифровать)
 	invalidItem := &model.Item{
 		ID: "test",
-		Title: &api.EncryptedField{
+		Title: &gophkeeperv1.EncryptedField{
 			Ciphertext: []byte("invalid-cipher"),
 			Nonce:      make([]byte, 24), // Валидный размер nonce для XChaCha20
 		},
@@ -722,7 +722,7 @@ func BenchmarkAddItem(b *testing.B) {
 	payload := []byte("benchmark payload")
 
 	for b.Loop() {
-		err := app.AddItem(api.ItemType_ITEM_TYPE_TEXT, title, nil, payload)
+		err := app.AddItem(gophkeeperv1.ItemType_ITEM_TYPE_TEXT, title, nil, payload)
 		if err != nil {
 			b.Fatal(err)
 		}

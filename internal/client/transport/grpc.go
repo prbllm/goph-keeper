@@ -8,8 +8,7 @@ import (
 	"errors"
 	"os"
 
-	"github.com/prbllm/goph-keeper/api"
-
+	gophkeeperv1 "github.com/prbllm/goph-keeper/api/proto/gophkeeper/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
@@ -33,13 +32,13 @@ type GRPCClient struct {
 	Conn *grpc.ClientConn
 
 	// Auth — клиент сервиса аутентификации
-	Auth api.AuthServiceClient
+	Auth gophkeeperv1.AuthServiceClient
 	// Vault — клиент сервиса управления хранилищем
-	Vault api.VaultServiceClient
+	Vault gophkeeperv1.VaultServiceClient
 	// Sync — клиент сервиса синхронизации
-	Sync api.SyncServiceClient
+	Sync gophkeeperv1.SyncServiceClient
 	// Blob — клиент сервиса хранения больших двоичных объектов
-	Blob api.BlobServiceClient
+	Blob gophkeeperv1.BlobServiceClient
 }
 
 // New создаёт новый gRPC клиент для взаимодействия с сервером.
@@ -84,26 +83,26 @@ func New(addr string, token string, opts DialOptions) (*GRPCClient, error) {
 
 	return &GRPCClient{
 		Conn:  conn,
-		Auth:  api.NewAuthServiceClient(conn),
-		Vault: api.NewVaultServiceClient(conn),
-		Sync:  api.NewSyncServiceClient(conn),
-		Blob:  api.NewBlobServiceClient(conn),
+		Auth:  gophkeeperv1.NewAuthServiceClient(conn),
+		Vault: gophkeeperv1.NewVaultServiceClient(conn),
+		Sync:  gophkeeperv1.NewSyncServiceClient(conn),
+		Blob:  gophkeeperv1.NewBlobServiceClient(conn),
 	}, nil
 }
 
-func (c *GRPCClient) AuthClient() api.AuthServiceClient {
+func (c *GRPCClient) AuthClient() gophkeeperv1.AuthServiceClient {
 	return c.Auth
 }
 
-func (c *GRPCClient) VaultClient() api.VaultServiceClient {
+func (c *GRPCClient) VaultClient() gophkeeperv1.VaultServiceClient {
 	return c.Vault
 }
 
-func (c *GRPCClient) SyncClient() api.SyncServiceClient {
+func (c *GRPCClient) SyncClient() gophkeeperv1.SyncServiceClient {
 	return c.Sync
 }
 
-func (c *GRPCClient) BlobClient() api.BlobServiceClient {
+func (c *GRPCClient) BlobClient() gophkeeperv1.BlobServiceClient {
 	return c.Blob
 }
 

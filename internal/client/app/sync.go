@@ -7,7 +7,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/prbllm/goph-keeper/api"
+	gophkeeperv1 "github.com/prbllm/goph-keeper/api/proto/gophkeeper/v1"
 	"github.com/prbllm/goph-keeper/internal/client/model"
 )
 
@@ -16,12 +16,12 @@ import (
 // Обновляет состояние синхронизации и очищает список операций.
 // Возвращает ошибку в случае неудачи синхронизации.
 func (a *App) Sync() error {
-	req := &api.SyncRequest{
+	req := &gophkeeperv1.SyncRequest{
 		ClientRevision: a.SyncState.LastRevision,
 	}
 
 	for _, op := range a.SyncState.PendingOperations {
-		req.PendingOperations = append(req.PendingOperations, &api.PendingOperation{
+		req.PendingOperations = append(req.PendingOperations, &gophkeeperv1.PendingOperation{
 			OperationId:     op.OperationID,
 			OperationType:   op.Type,
 			ItemId:          op.ItemID,
@@ -55,13 +55,13 @@ func (a *App) Sync() error {
 // applyEvent применяет событие изменения к локальному хранилищу.
 // Обрабатывает создание, обновление и удаление элементов.
 // Шифрует данные перед сохранением в локальное хранилище.
-func (a *App) applyEvent(ev *api.RevisionEvent) {
+func (a *App) applyEvent(ev *gophkeeperv1.RevisionEvent) {
 	it := ev.Item
 
 	switch ev.ChangeType {
 
-	case api.ChangeType_CHANGE_TYPE_CREATED,
-		api.ChangeType_CHANGE_TYPE_UPDATED:
+	case gophkeeperv1.ChangeType_CHANGE_TYPE_CREATED,
+		gophkeeperv1.ChangeType_CHANGE_TYPE_UPDATED:
 
 		item := &model.Item{
 			ID:      it.ItemId,
@@ -77,7 +77,7 @@ func (a *App) applyEvent(ev *api.RevisionEvent) {
 
 		_ = a.LocalStorage.Upsert(item)
 
-	case api.ChangeType_CHANGE_TYPE_DELETED:
+	case gophkeeperv1.ChangeType_CHANGE_TYPE_DELETED:
 
 		item := &model.Item{
 			ID:      it.ItemId,

@@ -9,7 +9,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	api "github.com/prbllm/goph-keeper/api"
+	gophkeeperv1 "github.com/prbllm/goph-keeper/api/proto/gophkeeper/v1"
 	grpc "google.golang.org/grpc"
 )
 
@@ -37,14 +37,14 @@ func (m *MockSyncServiceClient) EXPECT() *MockSyncServiceClientMockRecorder {
 }
 
 // PullChanges mocks base method.
-func (m *MockSyncServiceClient) PullChanges(arg0 context.Context, arg1 *api.PullChangesRequest, arg2 ...grpc.CallOption) (*api.PullChangesResponse, error) {
+func (m *MockSyncServiceClient) PullChanges(arg0 context.Context, arg1 *gophkeeperv1.PullChangesRequest, arg2 ...grpc.CallOption) (*gophkeeperv1.PullChangesResponse, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "PullChanges", varargs...)
-	ret0, _ := ret[0].(*api.PullChangesResponse)
+	ret0, _ := ret[0].(*gophkeeperv1.PullChangesResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -57,14 +57,14 @@ func (mr *MockSyncServiceClientMockRecorder) PullChanges(arg0, arg1 interface{},
 }
 
 // PushChanges mocks base method.
-func (m *MockSyncServiceClient) PushChanges(arg0 context.Context, arg1 *api.PushChangesRequest, arg2 ...grpc.CallOption) (*api.PushChangesResponse, error) {
+func (m *MockSyncServiceClient) PushChanges(arg0 context.Context, arg1 *gophkeeperv1.PushChangesRequest, arg2 ...grpc.CallOption) (*gophkeeperv1.PushChangesResponse, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "PushChanges", varargs...)
-	ret0, _ := ret[0].(*api.PushChangesResponse)
+	ret0, _ := ret[0].(*gophkeeperv1.PushChangesResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -77,14 +77,14 @@ func (mr *MockSyncServiceClientMockRecorder) PushChanges(arg0, arg1 interface{},
 }
 
 // Sync mocks base method.
-func (m *MockSyncServiceClient) Sync(arg0 context.Context, arg1 *api.SyncRequest, arg2 ...grpc.CallOption) (*api.SyncResponse, error) {
+func (m *MockSyncServiceClient) Sync(arg0 context.Context, arg1 *gophkeeperv1.SyncRequest, arg2 ...grpc.CallOption) (*gophkeeperv1.SyncResponse, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "Sync", varargs...)
-	ret0, _ := ret[0].(*api.SyncResponse)
+	ret0, _ := ret[0].(*gophkeeperv1.SyncResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

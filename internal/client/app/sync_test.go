@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	"github.com/prbllm/goph-keeper/api"
+	gophkeeperv1 "github.com/prbllm/goph-keeper/api/proto/gophkeeper/v1"
 	"github.com/prbllm/goph-keeper/internal/client/mocks"
 	"github.com/prbllm/goph-keeper/internal/client/model"
 	"github.com/stretchr/testify/assert"
@@ -24,12 +24,12 @@ func TestSync_Success(t *testing.T) {
 	pendingOps := []model.PendingOperation{
 		{
 			OperationID:     "op-1",
-			Type:            api.PendingOperationType_PENDING_OPERATION_TYPE_CREATE,
+			Type:            gophkeeperv1.PendingOperationType_PENDING_OPERATION_TYPE_CREATE,
 			ItemID:          "item-1",
 			ExpectedVersion: 0,
-			Snapshot: &api.VaultItemSnapshot{
-				ItemType: api.ItemType_ITEM_TYPE_TEXT,
-				Title: &api.EncryptedField{
+			Snapshot: &gophkeeperv1.VaultItemSnapshot{
+				ItemType: gophkeeperv1.ItemType_ITEM_TYPE_TEXT,
+				Title: &gophkeeperv1.EncryptedField{
 					Ciphertext: []byte("encrypted-title"),
 					Nonce:      []byte("nonce-1"),
 				},
@@ -37,12 +37,12 @@ func TestSync_Success(t *testing.T) {
 		},
 		{
 			OperationID:     "op-2",
-			Type:            api.PendingOperationType_PENDING_OPERATION_TYPE_UPDATE,
+			Type:            gophkeeperv1.PendingOperationType_PENDING_OPERATION_TYPE_UPDATE,
 			ItemID:          "item-2",
 			ExpectedVersion: 5,
-			Snapshot: &api.VaultItemSnapshot{
-				ItemType: api.ItemType_ITEM_TYPE_CREDENTIAL,
-				Title: &api.EncryptedField{
+			Snapshot: &gophkeeperv1.VaultItemSnapshot{
+				ItemType: gophkeeperv1.ItemType_ITEM_TYPE_CREDENTIAL,
+				Title: &gophkeeperv1.EncryptedField{
 					Ciphertext: []byte("encrypted-title-2"),
 					Nonce:      []byte("nonce-2"),
 				},
@@ -63,15 +63,15 @@ func TestSync_Success(t *testing.T) {
 	// Настройка моков
 	mockClient.EXPECT().SyncClient().Return(mockSyncClient).Times(1)
 	mockSyncClient.EXPECT().Sync(gomock.Any(), gomock.Any()).
-		DoAndReturn(func(ctx interface{}, req *api.SyncRequest, opts ...grpc.CallOption) (*api.SyncResponse, error) {
+		DoAndReturn(func(ctx interface{}, req *gophkeeperv1.SyncRequest, opts ...grpc.CallOption) (*gophkeeperv1.SyncResponse, error) {
 			// Проверяем корректность запроса
 			assert.Equal(t, uint64(42), req.ClientRevision)
 			assert.Len(t, req.PendingOperations, 2)
 			assert.Equal(t, "op-1", req.PendingOperations[0].OperationId)
 			assert.Equal(t, "op-2", req.PendingOperations[1].OperationId)
-			return &api.SyncResponse{
+			return &gophkeeperv1.SyncResponse{
 				NewServerRevision: 100,
-				RemoteChanges:     []*api.RevisionEvent{},
+				RemoteChanges:     []*gophkeeperv1.RevisionEvent{},
 			}, nil
 		}).
 		Times(1)
@@ -144,21 +144,21 @@ func TestSync_ApplyRemoteChanges_Created(t *testing.T) {
 		LocalStorage: mockStorage,
 	}
 
-	remoteEvent := &api.RevisionEvent{
-		ChangeType: api.ChangeType_CHANGE_TYPE_CREATED,
-		Item: &api.VaultItem{
+	remoteEvent := &gophkeeperv1.RevisionEvent{
+		ChangeType: gophkeeperv1.ChangeType_CHANGE_TYPE_CREATED,
+		Item: &gophkeeperv1.VaultItem{
 			ItemId:   "remote-item-1",
 			Version:  1,
-			ItemType: api.ItemType_ITEM_TYPE_TEXT,
-			Title: &api.EncryptedField{
+			ItemType: gophkeeperv1.ItemType_ITEM_TYPE_TEXT,
+			Title: &gophkeeperv1.EncryptedField{
 				Ciphertext: []byte("title-cipher"),
 				Nonce:      []byte("title-nonce"),
 			},
-			Metadata: &api.EncryptedField{
+			Metadata: &gophkeeperv1.EncryptedField{
 				Ciphertext: []byte("meta-cipher"),
 				Nonce:      []byte("meta-nonce"),
 			},
-			Payload: &api.EncryptedField{
+			Payload: &gophkeeperv1.EncryptedField{
 				Ciphertext: []byte("payload-cipher"),
 				Nonce:      []byte("payload-nonce"),
 			},
@@ -167,9 +167,9 @@ func TestSync_ApplyRemoteChanges_Created(t *testing.T) {
 
 	mockClient.EXPECT().SyncClient().Return(mockSyncClient).Times(1)
 	mockSyncClient.EXPECT().Sync(gomock.Any(), gomock.Any()).
-		Return(&api.SyncResponse{
+		Return(&gophkeeperv1.SyncResponse{
 			NewServerRevision: 51,
-			RemoteChanges:     []*api.RevisionEvent{remoteEvent},
+			RemoteChanges:     []*gophkeeperv1.RevisionEvent{remoteEvent},
 		}, nil).
 		Times(1)
 
@@ -177,7 +177,7 @@ func TestSync_ApplyRemoteChanges_Created(t *testing.T) {
 		DoAndReturn(func(item *model.Item) error {
 			assert.Equal(t, "remote-item-1", item.ID)
 			assert.Equal(t, uint64(1), item.Version)
-			assert.Equal(t, api.ItemType_ITEM_TYPE_TEXT, item.Type)
+			assert.Equal(t, gophkeeperv1.ItemType_ITEM_TYPE_TEXT, item.Type)
 			assert.False(t, item.Deleted)
 			return nil
 		}).
@@ -213,13 +213,13 @@ func TestSync_ApplyRemoteChanges_Updated(t *testing.T) {
 		LocalStorage: mockStorage,
 	}
 
-	remoteEvent := &api.RevisionEvent{
-		ChangeType: api.ChangeType_CHANGE_TYPE_UPDATED,
-		Item: &api.VaultItem{
+	remoteEvent := &gophkeeperv1.RevisionEvent{
+		ChangeType: gophkeeperv1.ChangeType_CHANGE_TYPE_UPDATED,
+		Item: &gophkeeperv1.VaultItem{
 			ItemId:   "existing-item",
 			Version:  10,
-			ItemType: api.ItemType_ITEM_TYPE_CREDENTIAL,
-			Title: &api.EncryptedField{
+			ItemType: gophkeeperv1.ItemType_ITEM_TYPE_CREDENTIAL,
+			Title: &gophkeeperv1.EncryptedField{
 				Ciphertext: []byte("new-title"),
 				Nonce:      []byte("new-nonce"),
 			},
@@ -228,9 +228,9 @@ func TestSync_ApplyRemoteChanges_Updated(t *testing.T) {
 
 	mockClient.EXPECT().SyncClient().Return(mockSyncClient).Times(1)
 	mockSyncClient.EXPECT().Sync(gomock.Any(), gomock.Any()).
-		Return(&api.SyncResponse{
+		Return(&gophkeeperv1.SyncResponse{
 			NewServerRevision: 76,
-			RemoteChanges:     []*api.RevisionEvent{remoteEvent},
+			RemoteChanges:     []*gophkeeperv1.RevisionEvent{remoteEvent},
 		}, nil).
 		Times(1)
 
@@ -238,7 +238,7 @@ func TestSync_ApplyRemoteChanges_Updated(t *testing.T) {
 		DoAndReturn(func(item *model.Item) error {
 			assert.Equal(t, "existing-item", item.ID)
 			assert.Equal(t, uint64(10), item.Version)
-			assert.Equal(t, api.ItemType_ITEM_TYPE_CREDENTIAL, item.Type)
+			assert.Equal(t, gophkeeperv1.ItemType_ITEM_TYPE_CREDENTIAL, item.Type)
 			assert.False(t, item.Deleted)
 			return nil
 		}).
@@ -274,9 +274,9 @@ func TestSync_ApplyRemoteChanges_Deleted(t *testing.T) {
 		LocalStorage: mockStorage,
 	}
 
-	remoteEvent := &api.RevisionEvent{
-		ChangeType: api.ChangeType_CHANGE_TYPE_DELETED,
-		Item: &api.VaultItem{
+	remoteEvent := &gophkeeperv1.RevisionEvent{
+		ChangeType: gophkeeperv1.ChangeType_CHANGE_TYPE_DELETED,
+		Item: &gophkeeperv1.VaultItem{
 			ItemId:  "deleted-item",
 			Version: 15,
 		},
@@ -284,9 +284,9 @@ func TestSync_ApplyRemoteChanges_Deleted(t *testing.T) {
 
 	mockClient.EXPECT().SyncClient().Return(mockSyncClient).Times(1)
 	mockSyncClient.EXPECT().Sync(gomock.Any(), gomock.Any()).
-		Return(&api.SyncResponse{
+		Return(&gophkeeperv1.SyncResponse{
 			NewServerRevision: 91,
-			RemoteChanges:     []*api.RevisionEvent{remoteEvent},
+			RemoteChanges:     []*gophkeeperv1.RevisionEvent{remoteEvent},
 		}, nil).
 		Times(1)
 
@@ -329,24 +329,24 @@ func TestSync_MultipleRemoteChanges(t *testing.T) {
 		LocalStorage: mockStorage,
 	}
 
-	events := []*api.RevisionEvent{
+	events := []*gophkeeperv1.RevisionEvent{
 		{
-			ChangeType: api.ChangeType_CHANGE_TYPE_CREATED,
-			Item:       &api.VaultItem{ItemId: "item-1", Version: 1},
+			ChangeType: gophkeeperv1.ChangeType_CHANGE_TYPE_CREATED,
+			Item:       &gophkeeperv1.VaultItem{ItemId: "item-1", Version: 1},
 		},
 		{
-			ChangeType: api.ChangeType_CHANGE_TYPE_UPDATED,
-			Item:       &api.VaultItem{ItemId: "item-2", Version: 5},
+			ChangeType: gophkeeperv1.ChangeType_CHANGE_TYPE_UPDATED,
+			Item:       &gophkeeperv1.VaultItem{ItemId: "item-2", Version: 5},
 		},
 		{
-			ChangeType: api.ChangeType_CHANGE_TYPE_DELETED,
-			Item:       &api.VaultItem{ItemId: "item-3", Version: 3},
+			ChangeType: gophkeeperv1.ChangeType_CHANGE_TYPE_DELETED,
+			Item:       &gophkeeperv1.VaultItem{ItemId: "item-3", Version: 3},
 		},
 	}
 
 	mockClient.EXPECT().SyncClient().Return(mockSyncClient).Times(1)
 	mockSyncClient.EXPECT().Sync(gomock.Any(), gomock.Any()).
-		Return(&api.SyncResponse{
+		Return(&gophkeeperv1.SyncResponse{
 			NewServerRevision: 103,
 			RemoteChanges:     events,
 		}, nil).
@@ -389,12 +389,12 @@ func TestSync_NoPendingOperations(t *testing.T) {
 
 	mockClient.EXPECT().SyncClient().Return(mockSyncClient).Times(1)
 	mockSyncClient.EXPECT().Sync(gomock.Any(), gomock.Any()).
-		DoAndReturn(func(ctx interface{}, req *api.SyncRequest, opts ...grpc.CallOption) (*api.SyncResponse, error) {
+		DoAndReturn(func(ctx interface{}, req *gophkeeperv1.SyncRequest, opts ...grpc.CallOption) (*gophkeeperv1.SyncResponse, error) {
 			assert.Empty(t, req.PendingOperations) // Нет операций в запросе
 			assert.Equal(t, uint64(200), req.ClientRevision)
-			return &api.SyncResponse{
+			return &gophkeeperv1.SyncResponse{
 				NewServerRevision: 201,
-				RemoteChanges:     []*api.RevisionEvent{},
+				RemoteChanges:     []*gophkeeperv1.RevisionEvent{},
 			}, nil
 		}).
 		Times(1)
@@ -431,9 +431,9 @@ func TestSync_SaveSyncError(t *testing.T) {
 
 	mockClient.EXPECT().SyncClient().Return(mockSyncClient).Times(1)
 	mockSyncClient.EXPECT().Sync(gomock.Any(), gomock.Any()).
-		Return(&api.SyncResponse{
+		Return(&gophkeeperv1.SyncResponse{
 			NewServerRevision: 301,
-			RemoteChanges:     []*api.RevisionEvent{},
+			RemoteChanges:     []*gophkeeperv1.RevisionEvent{},
 		}, nil).
 		Times(1)
 
@@ -461,21 +461,21 @@ func TestApplyEvent_Created(t *testing.T) {
 		LocalStorage: mockStorage,
 	}
 
-	event := &api.RevisionEvent{
-		ChangeType: api.ChangeType_CHANGE_TYPE_CREATED,
-		Item: &api.VaultItem{
+	event := &gophkeeperv1.RevisionEvent{
+		ChangeType: gophkeeperv1.ChangeType_CHANGE_TYPE_CREATED,
+		Item: &gophkeeperv1.VaultItem{
 			ItemId:   "test-item",
 			Version:  1,
-			ItemType: api.ItemType_ITEM_TYPE_TEXT,
-			Title: &api.EncryptedField{
+			ItemType: gophkeeperv1.ItemType_ITEM_TYPE_TEXT,
+			Title: &gophkeeperv1.EncryptedField{
 				Ciphertext: []byte("cipher"),
 				Nonce:      []byte("nonce"),
 			},
-			Metadata: &api.EncryptedField{
+			Metadata: &gophkeeperv1.EncryptedField{
 				Ciphertext: []byte("meta"),
 				Nonce:      []byte("meta-nonce"),
 			},
-			Payload: &api.EncryptedField{
+			Payload: &gophkeeperv1.EncryptedField{
 				Ciphertext: []byte("payload"),
 				Nonce:      []byte("payload-nonce"),
 			},
@@ -486,7 +486,7 @@ func TestApplyEvent_Created(t *testing.T) {
 		DoAndReturn(func(item *model.Item) error {
 			assert.Equal(t, "test-item", item.ID)
 			assert.Equal(t, uint64(1), item.Version)
-			assert.Equal(t, api.ItemType_ITEM_TYPE_TEXT, item.Type)
+			assert.Equal(t, gophkeeperv1.ItemType_ITEM_TYPE_TEXT, item.Type)
 			assert.Equal(t, []byte("cipher"), item.Title.Ciphertext)
 			assert.Equal(t, []byte("nonce"), item.Title.Nonce)
 			assert.False(t, item.Deleted)
@@ -509,13 +509,13 @@ func TestApplyEvent_Updated(t *testing.T) {
 		LocalStorage: mockStorage,
 	}
 
-	event := &api.RevisionEvent{
-		ChangeType: api.ChangeType_CHANGE_TYPE_UPDATED,
-		Item: &api.VaultItem{
+	event := &gophkeeperv1.RevisionEvent{
+		ChangeType: gophkeeperv1.ChangeType_CHANGE_TYPE_UPDATED,
+		Item: &gophkeeperv1.VaultItem{
 			ItemId:   "updated-item",
 			Version:  10,
-			ItemType: api.ItemType_ITEM_TYPE_CARD,
-			Title: &api.EncryptedField{
+			ItemType: gophkeeperv1.ItemType_ITEM_TYPE_CARD,
+			Title: &gophkeeperv1.EncryptedField{
 				Ciphertext: []byte("new-title"),
 				Nonce:      []byte("new-nonce"),
 			},
@@ -526,7 +526,7 @@ func TestApplyEvent_Updated(t *testing.T) {
 		DoAndReturn(func(item *model.Item) error {
 			assert.Equal(t, "updated-item", item.ID)
 			assert.Equal(t, uint64(10), item.Version)
-			assert.Equal(t, api.ItemType_ITEM_TYPE_CARD, item.Type)
+			assert.Equal(t, gophkeeperv1.ItemType_ITEM_TYPE_CARD, item.Type)
 			assert.False(t, item.Deleted)
 			return nil
 		}).
@@ -545,9 +545,9 @@ func TestApplyEvent_Deleted(t *testing.T) {
 		LocalStorage: mockStorage,
 	}
 
-	event := &api.RevisionEvent{
-		ChangeType: api.ChangeType_CHANGE_TYPE_DELETED,
-		Item: &api.VaultItem{
+	event := &gophkeeperv1.RevisionEvent{
+		ChangeType: gophkeeperv1.ChangeType_CHANGE_TYPE_DELETED,
+		Item: &gophkeeperv1.VaultItem{
 			ItemId:  "deleted-item",
 			Version: 5,
 		},
@@ -577,9 +577,9 @@ func TestApplyEvent_UnknownChangeType(t *testing.T) {
 	}
 
 	// Неизвестный тип изменения (не должен вызывать Upsert)
-	event := &api.RevisionEvent{
+	event := &gophkeeperv1.RevisionEvent{
 		ChangeType: 999, // Неизвестный тип
-		Item:       &api.VaultItem{ItemId: "test", Version: 1},
+		Item:       &gophkeeperv1.VaultItem{ItemId: "test", Version: 1},
 	}
 
 	// Upsert не должен быть вызван
@@ -595,13 +595,13 @@ func TestApplyEvent_UnknownChangeType(t *testing.T) {
 func TestApplyEvent_TableDriven(t *testing.T) {
 	tests := []struct {
 		name         string
-		changeType   api.ChangeType
+		changeType   gophkeeperv1.ChangeType
 		expectUpsert bool
 		checkItem    func(t *testing.T, item *model.Item)
 	}{
 		{
 			name:         "created",
-			changeType:   api.ChangeType_CHANGE_TYPE_CREATED,
+			changeType:   gophkeeperv1.ChangeType_CHANGE_TYPE_CREATED,
 			expectUpsert: true,
 			checkItem: func(t *testing.T, item *model.Item) {
 				assert.False(t, item.Deleted)
@@ -609,7 +609,7 @@ func TestApplyEvent_TableDriven(t *testing.T) {
 		},
 		{
 			name:         "updated",
-			changeType:   api.ChangeType_CHANGE_TYPE_UPDATED,
+			changeType:   gophkeeperv1.ChangeType_CHANGE_TYPE_UPDATED,
 			expectUpsert: true,
 			checkItem: func(t *testing.T, item *model.Item) {
 				assert.False(t, item.Deleted)
@@ -617,7 +617,7 @@ func TestApplyEvent_TableDriven(t *testing.T) {
 		},
 		{
 			name:         "deleted",
-			changeType:   api.ChangeType_CHANGE_TYPE_DELETED,
+			changeType:   gophkeeperv1.ChangeType_CHANGE_TYPE_DELETED,
 			expectUpsert: true,
 			checkItem: func(t *testing.T, item *model.Item) {
 				assert.True(t, item.Deleted)
@@ -625,7 +625,7 @@ func TestApplyEvent_TableDriven(t *testing.T) {
 		},
 		{
 			name:         "unknown_type",
-			changeType:   api.ChangeType(999),
+			changeType:   gophkeeperv1.ChangeType(999),
 			expectUpsert: false,
 			checkItem:    nil,
 		},
@@ -639,9 +639,9 @@ func TestApplyEvent_TableDriven(t *testing.T) {
 			mockStorage := mocks.NewMockLocalStorage(ctrl)
 			app := &App{LocalStorage: mockStorage}
 
-			event := &api.RevisionEvent{
+			event := &gophkeeperv1.RevisionEvent{
 				ChangeType: tt.changeType,
-				Item: &api.VaultItem{
+				Item: &gophkeeperv1.VaultItem{
 					ItemId:  "test-item",
 					Version: 1,
 				},
@@ -688,9 +688,9 @@ func BenchmarkSync(b *testing.B) {
 	// Настройка моков для бенчмарка
 	mockClient.EXPECT().SyncClient().Return(mockSyncClient).AnyTimes()
 	mockSyncClient.EXPECT().Sync(gomock.Any(), gomock.Any()).
-		Return(&api.SyncResponse{
+		Return(&gophkeeperv1.SyncResponse{
 			NewServerRevision: 1001,
-			RemoteChanges:     []*api.RevisionEvent{},
+			RemoteChanges:     []*gophkeeperv1.RevisionEvent{},
 		}, nil).
 		AnyTimes()
 	mockStorage.EXPECT().SaveSync(gomock.Any()).Return(nil).AnyTimes()

@@ -3,7 +3,7 @@
 package model
 
 import (
-	"github.com/prbllm/goph-keeper/api"
+	gophkeeperv1 "github.com/prbllm/goph-keeper/api/proto/gophkeeper/v1"
 )
 
 // Item представляет локальную модель элемента хранилища (кэш).
@@ -15,14 +15,14 @@ type Item struct {
 	// Version — номер версии элемента для отслеживания изменений
 	Version uint64
 	// Type — тип элемента (текст, учётные данные, банковская карта и т.д.)
-	Type api.ItemType
+	Type gophkeeperv1.ItemType
 
 	// Title — зашифрованный заголовок элемента
-	Title *api.EncryptedField
+	Title *gophkeeperv1.EncryptedField
 	// Metadata — зашифрованные метаданные элемента
-	Metadata *api.EncryptedField
+	Metadata *gophkeeperv1.EncryptedField
 	// Payload — зашифрованная полезная нагрузка (основные данные)
-	Payload *api.EncryptedField
+	Payload *gophkeeperv1.EncryptedField
 
 	// Deleted — флаг удаления элемента (мягкое удаление)
 	Deleted bool

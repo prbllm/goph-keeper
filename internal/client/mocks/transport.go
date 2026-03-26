@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	api "github.com/prbllm/goph-keeper/api"
+	gophkeeperv1 "github.com/prbllm/goph-keeper/api/proto/gophkeeper/v1"
 )
 
 // MockClient is a mock of Client interface.
@@ -35,10 +35,10 @@ func (m *MockClient) EXPECT() *MockClientMockRecorder {
 }
 
 // AuthClient mocks base method.
-func (m *MockClient) AuthClient() api.AuthServiceClient {
+func (m *MockClient) AuthClient() gophkeeperv1.AuthServiceClient {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AuthClient")
-	ret0, _ := ret[0].(api.AuthServiceClient)
+	ret0, _ := ret[0].(gophkeeperv1.AuthServiceClient)
 	return ret0
 }
 
@@ -49,10 +49,10 @@ func (mr *MockClientMockRecorder) AuthClient() *gomock.Call {
 }
 
 // BlobClient mocks base method.
-func (m *MockClient) BlobClient() api.BlobServiceClient {
+func (m *MockClient) BlobClient() gophkeeperv1.BlobServiceClient {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "BlobClient")
-	ret0, _ := ret[0].(api.BlobServiceClient)
+	ret0, _ := ret[0].(gophkeeperv1.BlobServiceClient)
 	return ret0
 }
 
@@ -77,10 +77,10 @@ func (mr *MockClientMockRecorder) Close() *gomock.Call {
 }
 
 // SyncClient mocks base method.
-func (m *MockClient) SyncClient() api.SyncServiceClient {
+func (m *MockClient) SyncClient() gophkeeperv1.SyncServiceClient {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SyncClient")
-	ret0, _ := ret[0].(api.SyncServiceClient)
+	ret0, _ := ret[0].(gophkeeperv1.SyncServiceClient)
 	return ret0
 }
 
@@ -91,10 +91,10 @@ func (mr *MockClientMockRecorder) SyncClient() *gomock.Call {
 }
 
 // VaultClient mocks base method.
-func (m *MockClient) VaultClient() api.VaultServiceClient {
+func (m *MockClient) VaultClient() gophkeeperv1.VaultServiceClient {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "VaultClient")
-	ret0, _ := ret[0].(api.VaultServiceClient)
+	ret0, _ := ret[0].(gophkeeperv1.VaultServiceClient)
 	return ret0
 }
 

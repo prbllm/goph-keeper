@@ -9,7 +9,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	api "github.com/prbllm/goph-keeper/api"
+	gophkeeperv1 "github.com/prbllm/goph-keeper/api/proto/gophkeeper/v1"
 	grpc "google.golang.org/grpc"
 )
 
@@ -37,14 +37,14 @@ func (m *MockAuthServiceClient) EXPECT() *MockAuthServiceClientMockRecorder {
 }
 
 // Login mocks base method.
-func (m *MockAuthServiceClient) Login(arg0 context.Context, arg1 *api.LoginRequest, arg2 ...grpc.CallOption) (*api.LoginResponse, error) {
+func (m *MockAuthServiceClient) Login(arg0 context.Context, arg1 *gophkeeperv1.LoginRequest, arg2 ...grpc.CallOption) (*gophkeeperv1.LoginResponse, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "Login", varargs...)
-	ret0, _ := ret[0].(*api.LoginResponse)
+	ret0, _ := ret[0].(*gophkeeperv1.LoginResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -57,14 +57,14 @@ func (mr *MockAuthServiceClientMockRecorder) Login(arg0, arg1 interface{}, arg2 
 }
 
 // Logout mocks base method.
-func (m *MockAuthServiceClient) Logout(arg0 context.Context, arg1 *api.LogoutRequest, arg2 ...grpc.CallOption) (*api.LogoutResponse, error) {
+func (m *MockAuthServiceClient) Logout(arg0 context.Context, arg1 *gophkeeperv1.LogoutRequest, arg2 ...grpc.CallOption) (*gophkeeperv1.LogoutResponse, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "Logout", varargs...)
-	ret0, _ := ret[0].(*api.LogoutResponse)
+	ret0, _ := ret[0].(*gophkeeperv1.LogoutResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -77,14 +77,14 @@ func (mr *MockAuthServiceClientMockRecorder) Logout(arg0, arg1 interface{}, arg2
 }
 
 // Refresh mocks base method.
-func (m *MockAuthServiceClient) Refresh(arg0 context.Context, arg1 *api.RefreshRequest, arg2 ...grpc.CallOption) (*api.RefreshResponse, error) {
+func (m *MockAuthServiceClient) Refresh(arg0 context.Context, arg1 *gophkeeperv1.RefreshRequest, arg2 ...grpc.CallOption) (*gophkeeperv1.RefreshResponse, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "Refresh", varargs...)
-	ret0, _ := ret[0].(*api.RefreshResponse)
+	ret0, _ := ret[0].(*gophkeeperv1.RefreshResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -97,14 +97,14 @@ func (mr *MockAuthServiceClientMockRecorder) Refresh(arg0, arg1 interface{}, arg
 }
 
 // Register mocks base method.
-func (m *MockAuthServiceClient) Register(arg0 context.Context, arg1 *api.RegisterRequest, arg2 ...grpc.CallOption) (*api.RegisterResponse, error) {
+func (m *MockAuthServiceClient) Register(arg0 context.Context, arg1 *gophkeeperv1.RegisterRequest, arg2 ...grpc.CallOption) (*gophkeeperv1.RegisterResponse, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "Register", varargs...)
-	ret0, _ := ret[0].(*api.RegisterResponse)
+	ret0, _ := ret[0].(*gophkeeperv1.RegisterResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

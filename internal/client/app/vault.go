@@ -8,7 +8,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/prbllm/goph-keeper/api"
+	gophkeeperv1 "github.com/prbllm/goph-keeper/api/proto/gophkeeper/v1"
 
 	"github.com/prbllm/goph-keeper/internal/client/crypto"
 	"github.com/prbllm/goph-keeper/internal/client/model"
@@ -18,7 +18,7 @@ import (
 // Принимает тип элемента, заголовок, метаданные и полезную нагрузку.
 // Шифрует данные, сохраняет локально и добавляет операцию в очередь синхронизации.
 // Возвращает ошибку при отсутствии ключа шифрования или ошибках сохранения.
-func (a *App) AddItem(itemType api.ItemType, title, metadata, payload []byte) error {
+func (a *App) AddItem(itemType gophkeeperv1.ItemType, title, metadata, payload []byte) error {
 	if len(a.DEK) == 0 {
 		return errors.New("login required (DEK missing)")
 	}
@@ -58,10 +58,10 @@ func (a *App) AddItem(itemType api.ItemType, title, metadata, payload []byte) er
 	// pending op
 	a.SyncState.PendingOperations = append(a.SyncState.PendingOperations, model.PendingOperation{
 		OperationID:     opID,
-		Type:            api.PendingOperationType_PENDING_OPERATION_TYPE_CREATE,
+		Type:            gophkeeperv1.PendingOperationType_PENDING_OPERATION_TYPE_CREATE,
 		ItemID:          itemID,
 		ExpectedVersion: 0,
-		Snapshot: &api.VaultItemSnapshot{
+		Snapshot: &gophkeeperv1.VaultItemSnapshot{
 			ItemType: item.Type,
 			Title:    item.Title,
 			Metadata: item.Metadata,
@@ -89,7 +89,7 @@ func (a *App) GetItem(itemID string) (*model.Item, bool) {
 // Принимает идентификатор элемента, новый тип, заголовок, метаданные и полезную нагрузку.
 // Шифрует новые данные, обновляет локально и добавляет операцию в очередь синхронизации.
 // Возвращает ошибку при отсутствии элемента или ключа шифрования.
-func (a *App) UpdateItem(itemID string, itemType api.ItemType, title, metadata, payload []byte) error {
+func (a *App) UpdateItem(itemID string, itemType gophkeeperv1.ItemType, title, metadata, payload []byte) error {
 	if len(a.DEK) == 0 {
 		return errors.New("login required (DEK missing)")
 	}
@@ -133,10 +133,10 @@ func (a *App) UpdateItem(itemID string, itemType api.ItemType, title, metadata, 
 	// добавляем pending операцию
 	a.SyncState.PendingOperations = append(a.SyncState.PendingOperations, model.PendingOperation{
 		OperationID:     opID,
-		Type:            api.PendingOperationType_PENDING_OPERATION_TYPE_UPDATE,
+		Type:            gophkeeperv1.PendingOperationType_PENDING_OPERATION_TYPE_UPDATE,
 		ItemID:          itemID,
 		ExpectedVersion: item.Version - 1, // старая версия!
-		Snapshot: &api.VaultItemSnapshot{
+		Snapshot: &gophkeeperv1.VaultItemSnapshot{
 			ItemType: item.Type,
 			Title:    item.Title,
 			Metadata: item.Metadata,
@@ -172,7 +172,7 @@ func (a *App) DeleteItem(itemID string) error {
 	// добавляем pending операцию
 	a.SyncState.PendingOperations = append(a.SyncState.PendingOperations, model.PendingOperation{
 		OperationID:     opID,
-		Type:            api.PendingOperationType_PENDING_OPERATION_TYPE_DELETE,
+		Type:            gophkeeperv1.PendingOperationType_PENDING_OPERATION_TYPE_DELETE,
 		ItemID:          itemID,
 		ExpectedVersion: item.Version,
 	})
@@ -237,13 +237,13 @@ func (a *App) Unlock(password string) error {
 // encryptField шифрует поле данных с использованием ключа шифрования.
 // Принимает ключ и данные для шифрования.
 // Возвращает структуру с шифротекстом и nonce или ошибку.
-func encryptField(dek, data []byte) (*api.EncryptedField, error) {
+func encryptField(dek, data []byte) (*gophkeeperv1.EncryptedField, error) {
 	nonce, cipher, err := crypto.Encrypt(dek, data)
 	if err != nil {
 		return nil, err
 	}
 
-	return &api.EncryptedField{
+	return &gophkeeperv1.EncryptedField{
 		Ciphertext: cipher,
 		Nonce:      nonce,
 	}, nil

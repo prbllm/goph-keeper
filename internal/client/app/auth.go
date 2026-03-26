@@ -9,7 +9,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/prbllm/goph-keeper/api"
+	gophkeeperv1 "github.com/prbllm/goph-keeper/api/proto/gophkeeper/v1"
 
 	"github.com/prbllm/goph-keeper/internal/client/crypto"
 	"github.com/prbllm/goph-keeper/internal/client/model"
@@ -41,12 +41,12 @@ func (a *App) Register(login, password string) error {
 		return err
 	}
 
-	resp, err := a.Client.AuthClient().Register(ctx, &api.RegisterRequest{
+	resp, err := a.Client.AuthClient().Register(ctx, &gophkeeperv1.RegisterRequest{
 		Login:    login,
 		Password: password,
 
 		PasswordSalt: salt,
-		KdfParams: &api.KdfParams{
+		KdfParams: &gophkeeperv1.KdfParams{
 			Algorithm:   "argon2id",
 			MemoryKib:   64 * 1024,
 			Iterations:  3,
@@ -56,9 +56,9 @@ func (a *App) Register(login, password string) error {
 
 		EncryptedVaultKey:      encDEK,
 		EncryptedVaultKeyNonce: nonce,
-		Device: &api.DeviceInfo{
+		Device: &gophkeeperv1.DeviceInfo{
 			DeviceName:    "cli",
-			Platform:      api.DevicePlatform_DEVICE_PLATFORM_LINUX,
+			Platform:      gophkeeperv1.DevicePlatform_DEVICE_PLATFORM_LINUX,
 			ClientVersion: "dev",
 		},
 	})
@@ -90,12 +90,12 @@ func (a *App) Login(login, password string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	resp, err := a.Client.AuthClient().Login(ctx, &api.LoginRequest{
+	resp, err := a.Client.AuthClient().Login(ctx, &gophkeeperv1.LoginRequest{
 		Login:    login,
 		Password: password,
-		Device: &api.DeviceInfo{
+		Device: &gophkeeperv1.DeviceInfo{
 			DeviceName:    "cli",
-			Platform:      api.DevicePlatform_DEVICE_PLATFORM_LINUX,
+			Platform:      gophkeeperv1.DevicePlatform_DEVICE_PLATFORM_LINUX,
 			ClientVersion: "dev",
 		},
 	})

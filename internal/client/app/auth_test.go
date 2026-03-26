@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	"github.com/prbllm/goph-keeper/api"
+	gophkeeperv1 "github.com/prbllm/goph-keeper/api/proto/gophkeeper/v1"
 	"github.com/prbllm/goph-keeper/internal/client/crypto"
 	"github.com/prbllm/goph-keeper/internal/client/mocks"
 	"github.com/prbllm/goph-keeper/internal/client/model"
@@ -27,8 +27,8 @@ func TestRegister_Success(t *testing.T) {
 	// Настройка моков
 	mockClient.EXPECT().AuthClient().Return(mockAuthClient).Times(1)
 	mockAuthClient.EXPECT().Register(gomock.Any(), gomock.Any()).
-		Return(&api.RegisterResponse{
-			User: &api.UserInfo{
+		Return(&gophkeeperv1.RegisterResponse{
+			User: &gophkeeperv1.UserInfo{
 				UserId: "user-123",
 			},
 			AccessToken:  "access-token-abc",
@@ -109,7 +109,7 @@ func TestRegister_InvalidResponse(t *testing.T) {
 
 	mockClient.EXPECT().AuthClient().Return(mockAuthClient).Times(1)
 	mockAuthClient.EXPECT().Register(gomock.Any(), gomock.Any()).
-		Return(&api.RegisterResponse{
+		Return(&gophkeeperv1.RegisterResponse{
 			User: nil, // Невалидный ответ - нет пользователя
 		}, nil).
 		Times(1)
@@ -139,8 +139,8 @@ func TestRegister_SaveError(t *testing.T) {
 
 	mockClient.EXPECT().AuthClient().Return(mockAuthClient).Times(1)
 	mockAuthClient.EXPECT().Register(gomock.Any(), gomock.Any()).
-		Return(&api.RegisterResponse{
-			User: &api.UserInfo{
+		Return(&gophkeeperv1.RegisterResponse{
+			User: &gophkeeperv1.UserInfo{
 				UserId: "user-123",
 			},
 			AccessToken:  "token",
@@ -191,8 +191,8 @@ func TestLogin_Success(t *testing.T) {
 
 	mockClient.EXPECT().AuthClient().Return(mockAuthClient).Times(1)
 	mockAuthClient.EXPECT().Login(gomock.Any(), gomock.Any()).
-		Return(&api.LoginResponse{
-			User: &api.UserInfo{
+		Return(&gophkeeperv1.LoginResponse{
+			User: &gophkeeperv1.UserInfo{
 				UserId: "user-123",
 			},
 			AccessToken:            "access-token-abc",
@@ -283,8 +283,8 @@ func TestLogin_InvalidPassword(t *testing.T) {
 
 	mockClient.EXPECT().AuthClient().Return(mockAuthClient).Times(1)
 	mockAuthClient.EXPECT().Login(gomock.Any(), gomock.Any()).
-		Return(&api.LoginResponse{
-			User: &api.UserInfo{
+		Return(&gophkeeperv1.LoginResponse{
+			User: &gophkeeperv1.UserInfo{
 				UserId: "user-123",
 			},
 			PasswordSalt:           passwordSalt,
@@ -328,7 +328,7 @@ func TestLogin_InvalidResponse(t *testing.T) {
 
 	mockClient.EXPECT().AuthClient().Return(mockAuthClient).Times(1)
 	mockAuthClient.EXPECT().Login(gomock.Any(), gomock.Any()).
-		Return(&api.LoginResponse{
+		Return(&gophkeeperv1.LoginResponse{
 			User:                   nil, // Невалидный ответ
 			AccessToken:            "token",
 			RefreshToken:           "refresh",
@@ -373,8 +373,8 @@ func TestLogin_SaveError(t *testing.T) {
 
 	mockClient.EXPECT().AuthClient().Return(mockAuthClient).Times(1)
 	mockAuthClient.EXPECT().Login(gomock.Any(), gomock.Any()).
-		Return(&api.LoginResponse{
-			User: &api.UserInfo{
+		Return(&gophkeeperv1.LoginResponse{
+			User: &gophkeeperv1.UserInfo{
 				UserId: "user-123",
 			},
 			AccessToken:            "token",
@@ -424,8 +424,8 @@ func TestRegister_TableDriven(t *testing.T) {
 
 				mockClient.EXPECT().AuthClient().Return(mockAuthClient).Times(1)
 				mockAuthClient.EXPECT().Register(gomock.Any(), gomock.Any()).
-					Return(&api.RegisterResponse{
-						User: &api.UserInfo{UserId: "user-1"},
+					Return(&gophkeeperv1.RegisterResponse{
+						User: &gophkeeperv1.UserInfo{UserId: "user-1"},
 					}, nil).
 					Times(1)
 				mockStorage.EXPECT().Save(gomock.Any()).Return(nil).Times(1)
@@ -445,8 +445,8 @@ func TestRegister_TableDriven(t *testing.T) {
 
 				mockClient.EXPECT().AuthClient().Return(mockAuthClient).Times(1)
 				mockAuthClient.EXPECT().Register(gomock.Any(), gomock.Any()).
-					Return(&api.RegisterResponse{
-						User: &api.UserInfo{UserId: "user-2"},
+					Return(&gophkeeperv1.RegisterResponse{
+						User: &gophkeeperv1.UserInfo{UserId: "user-2"},
 					}, nil).
 					Times(1)
 				mockStorage.EXPECT().Save(gomock.Any()).Return(nil).Times(1)
@@ -517,8 +517,8 @@ func BenchmarkRegister(b *testing.B) {
 
 	mockClient.EXPECT().AuthClient().Return(mockAuthClient).AnyTimes()
 	mockAuthClient.EXPECT().Register(gomock.Any(), gomock.Any()).
-		Return(&api.RegisterResponse{
-			User: &api.UserInfo{UserId: "user-123"},
+		Return(&gophkeeperv1.RegisterResponse{
+			User: &gophkeeperv1.UserInfo{UserId: "user-123"},
 		}, nil).
 		AnyTimes()
 	mockStorage.EXPECT().Save(gomock.Any()).Return(nil).AnyTimes()
@@ -559,8 +559,8 @@ func BenchmarkLogin(b *testing.B) {
 
 	mockClient.EXPECT().AuthClient().Return(mockAuthClient).AnyTimes()
 	mockAuthClient.EXPECT().Login(gomock.Any(), gomock.Any()).
-		Return(&api.LoginResponse{
-			User:                   &api.UserInfo{UserId: "user-123"},
+		Return(&gophkeeperv1.LoginResponse{
+			User:                   &gophkeeperv1.UserInfo{UserId: "user-123"},
 			PasswordSalt:           passwordSalt,
 			EncryptedVaultKey:      encryptedDEK,
 			EncryptedVaultKeyNonce: nonce,

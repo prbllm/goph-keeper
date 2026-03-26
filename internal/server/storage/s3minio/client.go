@@ -30,7 +30,7 @@ func (minioConnector) Connect(ctx context.Context, endpoint, accessKey, secretKe
 
 	checkCtx, cancel := context.WithTimeout(ctx, time.Duration(config.MinIOConnectTimeoutSeconds)*time.Second)
 	defer cancel()
-	if _, err := client.ListBuckets(checkCtx); err != nil {
+	if _, err = client.ListBuckets(checkCtx); err != nil {
 		return nil, fmt.Errorf("minio list buckets: %w", err)
 	}
 

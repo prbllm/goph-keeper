@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/prbllm/goph-keeper/api"
+	gophkeeperv1 "github.com/prbllm/goph-keeper/api/proto/gophkeeper/v1"
 	"github.com/prbllm/goph-keeper/internal/client/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -159,12 +159,12 @@ func TestSaveSync_LoadSync_Success(t *testing.T) {
 		PendingOperations: []model.PendingOperation{
 			{
 				OperationID:     "op-1",
-				Type:            api.PendingOperationType_PENDING_OPERATION_TYPE_CREATE,
+				Type:            gophkeeperv1.PendingOperationType_PENDING_OPERATION_TYPE_CREATE,
 				ItemID:          "item-1",
 				ExpectedVersion: 0,
-				Snapshot: &api.VaultItemSnapshot{
-					ItemType: api.ItemType_ITEM_TYPE_TEXT,
-					Title: &api.EncryptedField{
+				Snapshot: &gophkeeperv1.VaultItemSnapshot{
+					ItemType: gophkeeperv1.ItemType_ITEM_TYPE_TEXT,
+					Title: &gophkeeperv1.EncryptedField{
 						Ciphertext: []byte("title"),
 						Nonce:      []byte("nonce"),
 					},
@@ -234,16 +234,16 @@ func TestUpsert_Get_Success(t *testing.T) {
 	item := &model.Item{
 		ID:      "item-123",
 		Version: 1,
-		Type:    api.ItemType_ITEM_TYPE_TEXT,
-		Title: &api.EncryptedField{
+		Type:    gophkeeperv1.ItemType_ITEM_TYPE_TEXT,
+		Title: &gophkeeperv1.EncryptedField{
 			Ciphertext: []byte("encrypted-title"),
 			Nonce:      []byte("nonce-1"),
 		},
-		Metadata: &api.EncryptedField{
+		Metadata: &gophkeeperv1.EncryptedField{
 			Ciphertext: []byte("encrypted-meta"),
 			Nonce:      []byte("nonce-2"),
 		},
-		Payload: &api.EncryptedField{
+		Payload: &gophkeeperv1.EncryptedField{
 			Ciphertext: []byte("encrypted-payload"),
 			Nonce:      []byte("nonce-3"),
 		},
@@ -261,7 +261,7 @@ func TestUpsert_Get_Success(t *testing.T) {
 	assert.NotNil(t, retrieved)
 	assert.Equal(t, "item-123", retrieved.ID)
 	assert.Equal(t, uint64(1), retrieved.Version)
-	assert.Equal(t, api.ItemType_ITEM_TYPE_TEXT, retrieved.Type)
+	assert.Equal(t, gophkeeperv1.ItemType_ITEM_TYPE_TEXT, retrieved.Type)
 	assert.Equal(t, []byte("encrypted-title"), retrieved.Title.Ciphertext)
 	assert.Equal(t, []byte("nonce-1"), retrieved.Title.Nonce)
 	assert.False(t, retrieved.Deleted)
@@ -276,7 +276,7 @@ func TestUpsert_Update_Success(t *testing.T) {
 	item := &model.Item{
 		ID:      "item-1",
 		Version: 1,
-		Type:    api.ItemType_ITEM_TYPE_TEXT,
+		Type:    gophkeeperv1.ItemType_ITEM_TYPE_TEXT,
 	}
 
 	err = storage.Upsert(item)
@@ -286,7 +286,7 @@ func TestUpsert_Update_Success(t *testing.T) {
 	updatedItem := &model.Item{
 		ID:      "item-1",
 		Version: 2,
-		Type:    api.ItemType_ITEM_TYPE_CREDENTIAL,
+		Type:    gophkeeperv1.ItemType_ITEM_TYPE_CREDENTIAL,
 	}
 
 	err = storage.Upsert(updatedItem)
@@ -298,7 +298,7 @@ func TestUpsert_Update_Success(t *testing.T) {
 	// Assert
 	assert.True(t, ok)
 	assert.Equal(t, uint64(2), retrieved.Version)
-	assert.Equal(t, api.ItemType_ITEM_TYPE_CREDENTIAL, retrieved.Type)
+	assert.Equal(t, gophkeeperv1.ItemType_ITEM_TYPE_CREDENTIAL, retrieved.Type)
 }
 
 func TestGet_NotFound(t *testing.T) {
@@ -458,7 +458,7 @@ func TestUpsert_Persistence(t *testing.T) {
 	item := &model.Item{
 		ID:      "persistent-item",
 		Version: 1,
-		Type:    api.ItemType_ITEM_TYPE_TEXT,
+		Type:    gophkeeperv1.ItemType_ITEM_TYPE_TEXT,
 	}
 	err = storage1.Upsert(item)
 	require.NoError(t, err)
@@ -642,12 +642,12 @@ func TestSaveSync_Overwrite(t *testing.T) {
 func TestUpsert_List_TableDriven(t *testing.T) {
 	tests := []struct {
 		name     string
-		itemType api.ItemType
+		itemType gophkeeperv1.ItemType
 	}{
-		{"text", api.ItemType_ITEM_TYPE_TEXT},
-		{"credential", api.ItemType_ITEM_TYPE_CREDENTIAL},
-		{"card", api.ItemType_ITEM_TYPE_CARD},
-		{"binary", api.ItemType_ITEM_TYPE_BINARY},
+		{"text", gophkeeperv1.ItemType_ITEM_TYPE_TEXT},
+		{"credential", gophkeeperv1.ItemType_ITEM_TYPE_CREDENTIAL},
+		{"card", gophkeeperv1.ItemType_ITEM_TYPE_CARD},
+		{"binary", gophkeeperv1.ItemType_ITEM_TYPE_BINARY},
 	}
 
 	for _, tt := range tests {

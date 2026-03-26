@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"syscall"
 
-	"github.com/prbllm/goph-keeper/api"
+	gophkeeperv1 "github.com/prbllm/goph-keeper/api/proto/gophkeeper/v1"
 	"github.com/prbllm/goph-keeper/internal/client/app"
 	"github.com/prbllm/goph-keeper/internal/client/model"
 	"github.com/prbllm/goph-keeper/internal/client/storage"
@@ -26,7 +26,7 @@ var addCmd = &cobra.Command{
 	Args:  cobra.RangeArgs(2, 5),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		var (
-			itemType api.ItemType
+			itemType gophkeeperv1.ItemType
 			payload  []byte
 			err      error
 		)
@@ -36,14 +36,14 @@ var addCmd = &cobra.Command{
 			if len(args) != 2 {
 				err = errors.New("accepts [data]")
 			} else {
-				itemType = api.ItemType_ITEM_TYPE_TEXT
+				itemType = gophkeeperv1.ItemType_ITEM_TYPE_TEXT
 				payload = []byte(args[1])
 			}
 		case "credential":
 			if len(args) != 3 {
 				err = errors.New("accepts [login] [password]")
 			} else {
-				itemType = api.ItemType_ITEM_TYPE_CREDENTIAL
+				itemType = gophkeeperv1.ItemType_ITEM_TYPE_CREDENTIAL
 				p := model.CredentialPayload{
 					Login:    args[1],
 					Password: args[2],
@@ -54,7 +54,7 @@ var addCmd = &cobra.Command{
 			if len(args) != 5 {
 				err = errors.New("accepts [number] [holder] [expire] [cvv]")
 			} else {
-				itemType = api.ItemType_ITEM_TYPE_CARD
+				itemType = gophkeeperv1.ItemType_ITEM_TYPE_CARD
 				p := model.CardPayload{
 					Number: args[1],
 					Holder: args[2],
@@ -241,7 +241,7 @@ var updateCmd = &cobra.Command{
 		id := args[0]
 
 		var (
-			itemType api.ItemType
+			itemType gophkeeperv1.ItemType
 			payload  []byte
 			err      error
 		)
@@ -252,14 +252,14 @@ var updateCmd = &cobra.Command{
 			if len(args) != 3 {
 				err = errors.New("accepts [data]")
 			} else {
-				itemType = api.ItemType_ITEM_TYPE_TEXT
+				itemType = gophkeeperv1.ItemType_ITEM_TYPE_TEXT
 				payload = []byte(args[2])
 			}
 		case "credential":
 			if len(args) != 4 {
 				err = errors.New("accepts [login] [password]")
 			} else {
-				itemType = api.ItemType_ITEM_TYPE_CREDENTIAL
+				itemType = gophkeeperv1.ItemType_ITEM_TYPE_CREDENTIAL
 				p := model.CredentialPayload{
 					Login:    args[2],
 					Password: args[3],
@@ -270,7 +270,7 @@ var updateCmd = &cobra.Command{
 			if len(args) != 6 {
 				err = errors.New("accepts [number] [holder] [expire] [cvv]")
 			} else {
-				itemType = api.ItemType_ITEM_TYPE_CARD
+				itemType = gophkeeperv1.ItemType_ITEM_TYPE_CARD
 				p := model.CardPayload{
 					Number: args[2],
 					Holder: args[3],
