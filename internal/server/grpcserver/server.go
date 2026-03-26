@@ -11,6 +11,7 @@ import (
 	"github.com/prbllm/goph-keeper/internal/server/config"
 	"github.com/prbllm/goph-keeper/internal/server/storage/postgres"
 	"github.com/prbllm/goph-keeper/internal/server/storage/s3minio"
+	"github.com/prbllm/goph-keeper/internal/server/vault"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -86,6 +87,7 @@ func New(deps *Deps, tlsCreds credentials.TransportCredentials) (*grpc.Server, e
 	gophkeeperv1.RegisterHealthServiceServer(s, healthService{})
 
 	now := time.Now
+
 	authRepos := postgres.NewAuthRepositories(deps.DB)
 	authService := auth.NewService(
 		authRepos,
@@ -101,6 +103,13 @@ func New(deps *Deps, tlsCreds credentials.TransportCredentials) (*grpc.Server, e
 		deps.Cfg.MaxChunkSizeBytes,
 	)
 	gophkeeperv1.RegisterAuthServiceServer(s, authHandler{svc: authService})
+
+	deps.Logger.Debug("gRPC: registering vault service")
+	vaultRepo := postgres.NewVaultRepository(deps.DB)
+	vaultRevisions := postgres.NewRevisionLogRepository(deps.DB)
+	vaultProcessed := postgres.NewProcessedOperationsRepository(deps.DB)
+	vaultEngine := vault.NewEngine(vaultRepo, vaultRevisions, vaultProcessed, now)
+	gophkeeperv1.RegisterVaultServiceServer(s, vaultHandler{engine: vaultEngine})
 
 	return s, nil
 }

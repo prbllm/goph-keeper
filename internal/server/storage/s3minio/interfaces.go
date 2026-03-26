@@ -18,4 +18,4 @@ type Connector interface {
 	Connect(ctx context.Context, endpoint, accessKey, secretKey, bucket string, useSSL bool) (Client, error)
 }
 
-//go:generate go run go.uber.org/mock/mockgen -typed -destination=../mocks/mock_s3minio.go -package=mocks . Client,Connector
+//go:generate go run go.uber.org/mock/mockgen -typed -destination=../mocks/mock_s3minio.go -package=mocks . Client
