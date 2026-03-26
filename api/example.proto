@@ -1,0 +1,524 @@
+syntax = "proto3";
+
+package gophkeeper.v1;
+
+option go_package = "github.com/prbllm/goph-keeper/api;api";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
+
+//
+// =========================
+// Enums
+// =========================
+//
+
+enum ItemType {
+  ITEM_TYPE_UNSPECIFIED = 0;
+  ITEM_TYPE_CREDENTIAL = 1;
+  ITEM_TYPE_TEXT = 2;
+  ITEM_TYPE_CARD = 3;
+  ITEM_TYPE_OTP = 4;
+  ITEM_TYPE_BINARY = 5;
+}
+
+enum BlobStatus {
+  BLOB_STATUS_UNSPECIFIED = 0;
+  BLOB_STATUS_PENDING = 1;
+  BLOB_STATUS_UPLOADING = 2;
+  BLOB_STATUS_COMMITTED = 3;
+  BLOB_STATUS_FAILED = 4;
+  BLOB_STATUS_DELETED = 5;
+}
+
+enum DevicePlatform {
+  DEVICE_PLATFORM_UNSPECIFIED = 0;
+  DEVICE_PLATFORM_LINUX = 1;
+  DEVICE_PLATFORM_WINDOWS = 2;
+  DEVICE_PLATFORM_MACOS = 3;
+}
+
+enum ChangeType {
+  CHANGE_TYPE_UNSPECIFIED = 0;
+  CHANGE_TYPE_CREATED = 1;
+  CHANGE_TYPE_UPDATED = 2;
+  CHANGE_TYPE_DELETED = 3;
+}
+
+enum PendingOperationType {
+  PENDING_OPERATION_TYPE_UNSPECIFIED = 0;
+  PENDING_OPERATION_TYPE_CREATE = 1;
+  PENDING_OPERATION_TYPE_UPDATE = 2;
+  PENDING_OPERATION_TYPE_DELETE = 3;
+}
+
+//
+// =========================
+// Common messages
+// =========================
+//
+
+message KdfParams {
+  string algorithm = 1; // e.g. "argon2id"
+  uint32 memory_kib = 2;
+  uint32 iterations = 3;
+  uint32 parallelism = 4;
+  uint32 key_length = 5;
+}
+
+message DeviceInfo {
+  string device_id = 1;      // may be empty on first login/register
+  string device_name = 2;
+  DevicePlatform platform = 3;
+  string client_version = 4;
+}
+
+message UserInfo {
+  string user_id = 1;
+  string login = 2;
+}
+
+message EncryptedField {
+  bytes ciphertext = 1;
+  bytes nonce = 2;
+}
+
+message VaultItem {
+  string item_id = 1;
+  string user_id = 2;
+  ItemType item_type = 3;
+
+  EncryptedField title = 4;
+  EncryptedField metadata = 5;
+
+  // For inline mode only.
+  EncryptedField payload = 6;
+
+  // For blob-backed items.
+  string blob_id = 7;
+
+  uint64 version = 8;
+  google.protobuf.Timestamp created_at = 9;
+  google.protobuf.Timestamp updated_at = 10;
+  google.protobuf.Timestamp deleted_at = 11; // zero if not deleted
+
+  bytes checksum = 12;
+}
+
+message ItemSummary {
+  string item_id = 1;
+  ItemType item_type = 2;
+  EncryptedField title = 3;
+  EncryptedField metadata = 4;
+  string blob_id = 5;
+  uint64 version = 6;
+  google.protobuf.Timestamp updated_at = 7;
+  google.protobuf.Timestamp deleted_at = 8;
+}
+
+message Device {
+  string device_id = 1;
+  string user_id = 2;
+  string device_name = 3;
+  DevicePlatform platform = 4;
+  string client_version = 5;
+  google.protobuf.Timestamp created_at = 6;
+  google.protobuf.Timestamp last_seen_at = 7;
+  google.protobuf.Timestamp revoked_at = 8;
+}
+
+message BlobInfo {
+  string blob_id = 1;
+  string user_id = 2;
+  string object_key = 3;
+  uint64 size_bytes = 4;
+  bytes checksum = 5;
+  string content_kind = 6; // e.g. "application/octet-stream", "text/plain"
+  string file_name = 7;
+  string mime_type = 8;
+  BlobStatus status = 9;
+  google.protobuf.Timestamp created_at = 10;
+  google.protobuf.Timestamp committed_at = 11;
+  google.protobuf.Timestamp deleted_at = 12;
+}
+
+message Limits {
+  uint64 inline_threshold_bytes = 1;
+  uint64 max_blob_size_bytes = 2;
+  uint64 max_chunk_size_bytes = 3;
+}
+
+//
+// =========================
+// AuthService
+// =========================
+//
+
+message RegisterRequest {
+  string login = 1;
+
+  // Для учебного проекта можно передавать пароль напрямую по TLS.
+  // В более жёсткой модели можно заменить на auth material / verifier.
+  string password = 2;
+
+  bytes password_salt = 3;
+  KdfParams kdf_params = 4;
+
+  bytes encrypted_vault_key = 5;
+  bytes encrypted_vault_key_nonce = 6;
+
+  DeviceInfo device = 7;
+}
+
+message RegisterResponse {
+  UserInfo user = 1;
+  string device_id = 2;
+  string access_token = 3;
+  string refresh_token = 4;
+  Limits limits = 5;
+}
+
+message LoginRequest {
+  string login = 1;
+  string password = 2;
+  DeviceInfo device = 3;
+}
+
+message LoginResponse {
+  UserInfo user = 1;
+  string device_id = 2;
+  string access_token = 3;
+  string refresh_token = 4;
+
+  bytes password_salt = 5;
+  KdfParams kdf_params = 6;
+
+  bytes encrypted_vault_key = 7;
+  bytes encrypted_vault_key_nonce = 8;
+
+  Limits limits = 9;
+}
+
+message RefreshRequest {
+  string refresh_token = 1;
+  string device_id = 2;
+}
+
+message RefreshResponse {
+  string access_token = 1;
+  string refresh_token = 2;
+}
+
+message LogoutRequest {
+  string refresh_token = 1;
+}
+
+message LogoutResponse {
+  bool success = 1;
+}
+
+service AuthService {
+  rpc Register(RegisterRequest) returns (RegisterResponse);
+  rpc Login(LoginRequest) returns (LoginResponse);
+  rpc Refresh(RefreshRequest) returns (RefreshResponse);
+  rpc Logout(LogoutRequest) returns (LogoutResponse);
+}
+
+//
+// =========================
+// DeviceService
+// =========================
+//
+
+message ListDevicesRequest {}
+
+message ListDevicesResponse {
+  repeated Device devices = 1;
+}
+
+message RevokeDeviceRequest {
+  string device_id = 1;
+}
+
+message RevokeDeviceResponse {
+  bool success = 1;
+}
+
+service DeviceService {
+  rpc ListDevices(ListDevicesRequest) returns (ListDevicesResponse);
+  rpc RevokeDevice(RevokeDeviceRequest) returns (RevokeDeviceResponse);
+}
+
+//
+// =========================
+// VaultService
+// =========================
+//
+
+message CreateItemRequest {
+  string operation_id = 1;
+
+  ItemType item_type = 2;
+  EncryptedField title = 3;
+  EncryptedField metadata = 4;
+
+  // Inline payload only.
+  EncryptedField payload = 5;
+
+  // Blob-backed item only.
+  string blob_id = 6;
+}
+
+message CreateItemResponse {
+  string item_id = 1;
+  uint64 version = 2;
+  uint64 server_revision = 3;
+}
+
+message GetItemRequest {
+  string item_id = 1;
+}
+
+message GetItemResponse {
+  VaultItem item = 1;
+}
+
+message ListItemsRequest {
+  uint32 page_size = 1;
+  string page_token = 2;
+  bool include_deleted = 3;
+}
+
+message ListItemsResponse {
+  repeated ItemSummary items = 1;
+  string next_page_token = 2;
+}
+
+message UpdateItemRequest {
+  string operation_id = 1;
+  string item_id = 2;
+  uint64 expected_version = 3;
+
+  EncryptedField title = 4;
+  EncryptedField metadata = 5;
+
+  // Inline payload only.
+  EncryptedField payload = 6;
+
+  // Blob-backed item only.
+  string blob_id = 7;
+}
+
+message UpdateItemResponse {
+  uint64 new_version = 1;
+  uint64 server_revision = 2;
+}
+
+message DeleteItemRequest {
+  string operation_id = 1;
+  string item_id = 2;
+  uint64 expected_version = 3;
+}
+
+message DeleteItemResponse {
+  uint64 new_version = 1;
+  uint64 server_revision = 2;
+}
+
+service VaultService {
+  rpc CreateItem(CreateItemRequest) returns (CreateItemResponse);
+  rpc GetItem(GetItemRequest) returns (GetItemResponse);
+  rpc ListItems(ListItemsRequest) returns (ListItemsResponse);
+  rpc UpdateItem(UpdateItemRequest) returns (UpdateItemResponse);
+  rpc DeleteItem(DeleteItemRequest) returns (DeleteItemResponse);
+}
+
+//
+// =========================
+// BlobService
+// =========================
+//
+
+message StartBlobUploadRequest {
+  uint64 expected_size = 1;
+  bytes expected_checksum = 2;
+
+  string content_kind = 3; // "application/octet-stream", "text/plain"
+  string file_name = 4;
+  string mime_type = 5;
+}
+
+message StartBlobUploadResponse {
+  string upload_session_id = 1;
+  string blob_id = 2;
+  uint64 max_chunk_size = 3;
+  google.protobuf.Timestamp expires_at = 4;
+}
+
+message UploadBlobRequest {
+  oneof body {
+    UploadBlobHeader header = 1;
+    UploadBlobChunk chunk = 2;
+  }
+}
+
+message UploadBlobHeader {
+  string upload_session_id = 1;
+}
+
+message UploadBlobChunk {
+  uint64 chunk_index = 1;
+  bytes data = 2; // already encrypted on the client
+}
+
+message UploadBlobResponse {
+  string upload_session_id = 1;
+  string blob_id = 2;
+  uint64 received_size = 3;
+  BlobStatus status = 4;
+}
+
+message CommitBlobUploadRequest {
+  string upload_session_id = 1;
+}
+
+message CommitBlobUploadResponse {
+  BlobInfo blob = 1;
+}
+
+message DownloadBlobRequest {
+  string blob_id = 1;
+}
+
+message DownloadBlobResponse {
+  oneof body {
+    DownloadBlobHeader header = 1;
+    DownloadBlobChunk chunk = 2;
+  }
+}
+
+message DownloadBlobHeader {
+  BlobInfo blob = 1;
+}
+
+message DownloadBlobChunk {
+  uint64 chunk_index = 1;
+  bytes data = 2; // encrypted bytes
+}
+
+service BlobService {
+  rpc StartBlobUpload(StartBlobUploadRequest) returns (StartBlobUploadResponse);
+  rpc UploadBlob(stream UploadBlobRequest) returns (UploadBlobResponse);
+  rpc CommitBlobUpload(CommitBlobUploadRequest) returns (CommitBlobUploadResponse);
+  rpc DownloadBlob(DownloadBlobRequest) returns (stream DownloadBlobResponse);
+}
+
+//
+// =========================
+// SyncService
+// =========================
+//
+
+message PendingOperation {
+  string operation_id = 1;
+  PendingOperationType operation_type = 2;
+
+  // Used for update/delete.
+  string item_id = 3;
+  uint64 expected_version = 4;
+
+  // Used for create/update.
+  VaultItemSnapshot snapshot = 5;
+}
+
+message VaultItemSnapshot {
+  ItemType item_type = 1;
+  EncryptedField title = 2;
+  EncryptedField metadata = 3;
+  EncryptedField payload = 4;
+  string blob_id = 5;
+}
+
+message RevisionEvent {
+  uint64 revision_id = 1;
+  string item_id = 2;
+  ChangeType change_type = 3;
+  uint64 item_version = 4;
+  google.protobuf.Timestamp changed_at = 5;
+
+  // Present for create/update, omitted for delete if desired.
+  VaultItem item = 6;
+}
+
+message OperationResult {
+  string operation_id = 1;
+  bool applied = 2;
+  string item_id = 3;
+  uint64 new_version = 4;
+  uint64 revision_id = 5;
+}
+
+message Conflict {
+  string operation_id = 1;
+  string item_id = 2;
+  uint64 expected_version = 3;
+  uint64 actual_version = 4;
+  VaultItem current_item = 5;
+  string reason = 6;
+}
+
+message SyncRequest {
+  uint64 client_revision = 1;
+  repeated PendingOperation pending_operations = 2;
+}
+
+message SyncResponse {
+  repeated OperationResult accepted_operations = 1;
+  repeated Conflict conflicts = 2;
+  repeated RevisionEvent remote_changes = 3;
+  uint64 new_server_revision = 4;
+}
+
+message PullChangesRequest {
+  uint64 since_revision = 1;
+  uint32 page_size = 2;
+  string page_token = 3;
+}
+
+message PullChangesResponse {
+  repeated RevisionEvent changes = 1;
+  uint64 new_server_revision = 2;
+  string next_page_token = 3;
+}
+
+message PushChangesRequest {
+  repeated PendingOperation pending_operations = 1;
+}
+
+message PushChangesResponse {
+  repeated OperationResult accepted_operations = 1;
+  repeated Conflict conflicts = 2;
+  uint64 server_revision = 3;
+}
+
+service SyncService {
+  rpc Sync(SyncRequest) returns (SyncResponse);
+  rpc PullChanges(PullChangesRequest) returns (PullChangesResponse);
+  rpc PushChanges(PushChangesRequest) returns (PushChangesResponse);
+}
+
+//
+// =========================
+// HealthService
+// =========================
+//
+
+message HealthCheckRequest {}
+
+message HealthCheckResponse {
+  string status = 1; // e.g. "SERVING"
+}
+
+service HealthService {
+  rpc Check(HealthCheckRequest) returns (HealthCheckResponse);
+}
