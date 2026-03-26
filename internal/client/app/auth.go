@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/rand"
 	"errors"
+	"os"
 	"runtime"
 	"time"
 
@@ -43,16 +44,6 @@ func (a *App) Register(login, password string) error {
 		return err
 	}
 
-	platform := gophkeeperv1.DevicePlatform_DEVICE_PLATFORM_UNSPECIFIED
-	switch runtime.GOOS {
-	case "linux":
-		platform = gophkeeperv1.DevicePlatform_DEVICE_PLATFORM_LINUX
-	case "windows":
-		platform = gophkeeperv1.DevicePlatform_DEVICE_PLATFORM_WINDOWS
-	case "darwin":
-		platform = gophkeeperv1.DevicePlatform_DEVICE_PLATFORM_MACOS
-	}
-
 	resp, err := a.Client.AuthClient().Register(ctx, &gophkeeperv1.RegisterRequest{
 		Login:    login,
 		Password: password,
@@ -69,8 +60,8 @@ func (a *App) Register(login, password string) error {
 		EncryptedVaultKey:      encDEK,
 		EncryptedVaultKeyNonce: nonce,
 		Device: &gophkeeperv1.DeviceInfo{
-			DeviceName:    "cli",
-			Platform:      platform,
+			DeviceName:    detectDeviceName(),
+			Platform:      detectPlatform(),
 			ClientVersion: version.Version,
 		},
 	})
@@ -106,9 +97,9 @@ func (a *App) Login(login, password string) error {
 		Login:    login,
 		Password: password,
 		Device: &gophkeeperv1.DeviceInfo{
-			DeviceName:    "cli",
-			Platform:      gophkeeperv1.DevicePlatform_DEVICE_PLATFORM_LINUX,
-			ClientVersion: "dev",
+			DeviceName:    detectDeviceName(),
+			Platform:      detectPlatform(),
+			ClientVersion: version.Version,
 		},
 	})
 	if err != nil {
@@ -145,4 +136,29 @@ func (a *App) Login(login, password string) error {
 	}
 
 	return a.LocalStorage.Save(a.AuthState)
+}
+
+// detectPlatform определяет ОС, на которой запущен клиент
+func detectPlatform() gophkeeperv1.DevicePlatform {
+	platform := gophkeeperv1.DevicePlatform_DEVICE_PLATFORM_UNSPECIFIED
+
+	switch runtime.GOOS {
+	case "linux":
+		platform = gophkeeperv1.DevicePlatform_DEVICE_PLATFORM_LINUX
+	case "windows":
+		platform = gophkeeperv1.DevicePlatform_DEVICE_PLATFORM_WINDOWS
+	case "darwin":
+		platform = gophkeeperv1.DevicePlatform_DEVICE_PLATFORM_MACOS
+	}
+
+	return platform
+}
+
+// detectDeviceName определяет имя хоста(устройства), на котором запущен клиент
+func detectDeviceName() string {
+	deviceName, err := os.Hostname()
+	if err != nil {
+		return ""
+	}
+	return deviceName
 }
