@@ -11,6 +11,7 @@ import (
 	"time"
 
 	gophkeeperv1 "github.com/prbllm/goph-keeper/api/proto/gophkeeper/v1"
+	"github.com/prbllm/goph-keeper/pkg/version"
 
 	"github.com/prbllm/goph-keeper/internal/client/crypto"
 	"github.com/prbllm/goph-keeper/internal/client/model"
@@ -70,7 +71,7 @@ func (a *App) Register(login, password string) error {
 		Device: &gophkeeperv1.DeviceInfo{
 			DeviceName:    "cli",
 			Platform:      platform,
-			ClientVersion: "dev",
+			ClientVersion: version.Version,
 		},
 	})
 	if err != nil {
