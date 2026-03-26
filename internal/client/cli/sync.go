@@ -19,6 +19,11 @@ var syncCmd = &cobra.Command{
 	Use:   "sync",
 	Short: "Sync with server",
 	RunE: func(cmd *cobra.Command, args []string) error {
+		dataDirPath, err := cmd.Flags().GetString("data-dir")
+		if err != nil {
+			return err
+		}
+
 		localStorage, err := storage.New(dataDirPath)
 		if err != nil {
 			return err
@@ -30,6 +35,21 @@ var syncCmd = &cobra.Command{
 
 		if state.AccessToken == "" {
 			return errors.New("not logged in")
+		}
+
+		serverAddr, err := cmd.Flags().GetString("server")
+		if err != nil {
+			return err
+		}
+
+		insecure, err := cmd.Flags().GetBool("insecure")
+		if err != nil {
+			return err
+		}
+
+		tlsCA, err := cmd.Flags().GetString("tls-ca")
+		if err != nil {
+			return err
 		}
 
 		client, err := transport.New(serverAddr, state.AccessToken, transport.DialOptions{Insecure: insecure, CAPath: tlsCA})

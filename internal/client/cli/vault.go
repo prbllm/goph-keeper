@@ -70,11 +70,31 @@ var addCmd = &cobra.Command{
 			return err
 		}
 
+		dataDirPath, err := cmd.Flags().GetString("data-dir")
+		if err != nil {
+			return err
+		}
+
 		localStorage, err := storage.New(dataDirPath)
 		if err != nil {
 			return err
 		}
 		state, err := localStorage.Load()
+		if err != nil {
+			return err
+		}
+
+		serverAddr, err := cmd.Flags().GetString("server")
+		if err != nil {
+			return err
+		}
+
+		insecure, err := cmd.Flags().GetBool("insecure")
+		if err != nil {
+			return err
+		}
+
+		tlsCA, err := cmd.Flags().GetString("tls-ca")
 		if err != nil {
 			return err
 		}
@@ -119,11 +139,31 @@ var listCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List secrets",
 	RunE: func(cmd *cobra.Command, args []string) error {
+		dataDirPath, err := cmd.Flags().GetString("data-dir")
+		if err != nil {
+			return err
+		}
+
 		localStorage, err := storage.New(dataDirPath)
 		if err != nil {
 			return err
 		}
 		state, err := localStorage.Load()
+		if err != nil {
+			return err
+		}
+
+		serverAddr, err := cmd.Flags().GetString("server")
+		if err != nil {
+			return err
+		}
+
+		insecure, err := cmd.Flags().GetBool("insecure")
+		if err != nil {
+			return err
+		}
+
+		tlsCA, err := cmd.Flags().GetString("tls-ca")
 		if err != nil {
 			return err
 		}
@@ -183,11 +223,31 @@ var getCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		id := args[0]
 
+		dataDirPath, err := cmd.Flags().GetString("data-dir")
+		if err != nil {
+			return err
+		}
+
 		localStorage, err := storage.New(dataDirPath)
 		if err != nil {
 			return err
 		}
 		state, err := localStorage.Load()
+		if err != nil {
+			return err
+		}
+
+		serverAddr, err := cmd.Flags().GetString("server")
+		if err != nil {
+			return err
+		}
+
+		insecure, err := cmd.Flags().GetBool("insecure")
+		if err != nil {
+			return err
+		}
+
+		tlsCA, err := cmd.Flags().GetString("tls-ca")
 		if err != nil {
 			return err
 		}
@@ -286,11 +346,31 @@ var updateCmd = &cobra.Command{
 			return err
 		}
 
+		dataDirPath, err := cmd.Flags().GetString("data-dir")
+		if err != nil {
+			return err
+		}
+
 		localStorage, err := storage.New(dataDirPath)
 		if err != nil {
 			return err
 		}
 		state, err := localStorage.Load()
+		if err != nil {
+			return err
+		}
+
+		serverAddr, err := cmd.Flags().GetString("server")
+		if err != nil {
+			return err
+		}
+
+		insecure, err := cmd.Flags().GetBool("insecure")
+		if err != nil {
+			return err
+		}
+
+		tlsCA, err := cmd.Flags().GetString("tls-ca")
 		if err != nil {
 			return err
 		}
@@ -332,11 +412,31 @@ var deleteCmd = &cobra.Command{
 	Short: "Delete secret",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
+		dataDirPath, err := cmd.Flags().GetString("data-dir")
+		if err != nil {
+			return err
+		}
+
 		localStorage, err := storage.New(dataDirPath)
 		if err != nil {
 			return err
 		}
 		state, err := localStorage.Load()
+		if err != nil {
+			return err
+		}
+
+		serverAddr, err := cmd.Flags().GetString("server")
+		if err != nil {
+			return err
+		}
+
+		insecure, err := cmd.Flags().GetBool("insecure")
+		if err != nil {
+			return err
+		}
+
+		tlsCA, err := cmd.Flags().GetString("tls-ca")
 		if err != nil {
 			return err
 		}

@@ -20,7 +20,27 @@ var registerCmd = &cobra.Command{
 	Short: "Register user",
 	Args:  cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
+		dataDirPath, err := cmd.Flags().GetString("data-dir")
+		if err != nil {
+			return err
+		}
+
 		localStorage, err := storage.New(dataDirPath)
+		if err != nil {
+			return err
+		}
+
+		serverAddr, err := cmd.Flags().GetString("server")
+		if err != nil {
+			return err
+		}
+
+		insecure, err := cmd.Flags().GetBool("insecure")
+		if err != nil {
+			return err
+		}
+
+		tlsCA, err := cmd.Flags().GetString("tls-ca")
 		if err != nil {
 			return err
 		}
@@ -54,7 +74,27 @@ var loginCmd = &cobra.Command{
 	Short: "Login user",
 	Args:  cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
+		dataDirPath, err := cmd.Flags().GetString("data-dir")
+		if err != nil {
+			return err
+		}
+
 		localStorage, err := storage.New(dataDirPath)
+		if err != nil {
+			return err
+		}
+
+		serverAddr, err := cmd.Flags().GetString("server")
+		if err != nil {
+			return err
+		}
+
+		insecure, err := cmd.Flags().GetBool("insecure")
+		if err != nil {
+			return err
+		}
+
+		tlsCA, err := cmd.Flags().GetString("tls-ca")
 		if err != nil {
 			return err
 		}
