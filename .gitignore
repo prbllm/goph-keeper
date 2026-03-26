@@ -1,2 +1,5 @@
 .*/
+!.github/
 .env
+.vscode/
+bin/
