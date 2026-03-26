@@ -1,0 +1,24 @@
+name: Test
+
+on:
+  push:
+    branches: [ "main", "dev" ]
+  pull_request:
+    branches: [ "main", "dev" ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4 # Клонирует ваш репозиторий
+      
+      - name: Set up Go
+        uses: actions/setup-go@v5 # Устанавливает среду Go
+        with:
+          go-version: '1.25.7' # Укажите нужную версию Go
+          
+      - name: Install dependencies
+        run: go mod download # Скачивает зависимости из go.mod
+
+      - name: Run Tests
+        run: go test -cover -v ./... # Запускает все тесты в проекте
