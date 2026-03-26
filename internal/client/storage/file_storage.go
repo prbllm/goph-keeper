@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/prbllm/goph-keeper/internal/model"
+	"github.com/prbllm/goph-keeper/internal/client/model"
 )
 
 // FileStorage реализует интерфейс LocalStorage с использованием файловой системы.

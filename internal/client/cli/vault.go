@@ -8,10 +8,10 @@ import (
 	"syscall"
 
 	"github.com/prbllm/goph-keeper/api"
-	"github.com/prbllm/goph-keeper/internal/app"
-	"github.com/prbllm/goph-keeper/internal/model"
-	"github.com/prbllm/goph-keeper/internal/storage"
-	"github.com/prbllm/goph-keeper/internal/transport"
+	"github.com/prbllm/goph-keeper/internal/client/app"
+	"github.com/prbllm/goph-keeper/internal/client/model"
+	"github.com/prbllm/goph-keeper/internal/client/storage"
+	"github.com/prbllm/goph-keeper/internal/client/transport"
 	"golang.org/x/term"
 
 	"github.com/spf13/cobra"

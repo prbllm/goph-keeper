@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/prbllm/goph-keeper/api"
-	"github.com/prbllm/goph-keeper/internal/model"
+	"github.com/prbllm/goph-keeper/internal/client/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

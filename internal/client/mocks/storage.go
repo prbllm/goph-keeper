@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	model "github.com/prbllm/goph-keeper/internal/model"
+	model "github.com/prbllm/goph-keeper/internal/client/model"
 )
 
 // MockAuthStateStorage is a mock of AuthStateStorage interface.

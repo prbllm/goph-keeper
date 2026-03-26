@@ -8,9 +8,9 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/prbllm/goph-keeper/api"
-	"github.com/prbllm/goph-keeper/internal/crypto"
-	"github.com/prbllm/goph-keeper/internal/mocks"
-	"github.com/prbllm/goph-keeper/internal/model"
+	"github.com/prbllm/goph-keeper/internal/client/crypto"
+	"github.com/prbllm/goph-keeper/internal/client/mocks"
+	"github.com/prbllm/goph-keeper/internal/client/model"
 	"github.com/stretchr/testify/assert"
 )
 

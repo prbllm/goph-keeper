@@ -4,10 +4,10 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	"github.com/prbllm/goph-keeper/internal/mocks"
-	"github.com/prbllm/goph-keeper/internal/model"
-	"github.com/prbllm/goph-keeper/internal/storage"
-	"github.com/prbllm/goph-keeper/internal/transport"
+	"github.com/prbllm/goph-keeper/internal/client/mocks"
+	"github.com/prbllm/goph-keeper/internal/client/model"
+	"github.com/prbllm/goph-keeper/internal/client/storage"
+	"github.com/prbllm/goph-keeper/internal/client/transport"
 	"github.com/stretchr/testify/assert"
 )
 

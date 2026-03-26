@@ -3,7 +3,7 @@
 // состоянием синхронизации и элементами хранилища.
 package storage
 
-import "github.com/prbllm/goph-keeper/internal/model"
+import "github.com/prbllm/goph-keeper/internal/client/model"
 
 // AuthStateStorage определяет методы для сохранения и загрузки состояния аутентификации.
 type AuthStateStorage interface {

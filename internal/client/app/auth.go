@@ -11,8 +11,8 @@ import (
 
 	"github.com/prbllm/goph-keeper/api"
 
-	"github.com/prbllm/goph-keeper/internal/crypto"
-	"github.com/prbllm/goph-keeper/internal/model"
+	"github.com/prbllm/goph-keeper/internal/client/crypto"
+	"github.com/prbllm/goph-keeper/internal/client/model"
 )
 
 // Register регистрирует нового пользователя в системе.

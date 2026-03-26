@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/prbllm/goph-keeper/api"
-	"github.com/prbllm/goph-keeper/internal/model"
+	"github.com/prbllm/goph-keeper/internal/client/model"
 )
 
 // Sync выполняет синхронизацию локальных изменений с сервером.
