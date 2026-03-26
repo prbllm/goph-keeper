@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/rand"
 	"errors"
+	"runtime"
 	"time"
 
 	gophkeeperv1 "github.com/prbllm/goph-keeper/api/proto/gophkeeper/v1"
@@ -41,6 +42,16 @@ func (a *App) Register(login, password string) error {
 		return err
 	}
 
+	platform := gophkeeperv1.DevicePlatform_DEVICE_PLATFORM_UNSPECIFIED
+	switch runtime.GOOS {
+	case "linux":
+		platform = gophkeeperv1.DevicePlatform_DEVICE_PLATFORM_LINUX
+	case "windows":
+		platform = gophkeeperv1.DevicePlatform_DEVICE_PLATFORM_WINDOWS
+	case "darwin":
+		platform = gophkeeperv1.DevicePlatform_DEVICE_PLATFORM_MACOS
+	}
+
 	resp, err := a.Client.AuthClient().Register(ctx, &gophkeeperv1.RegisterRequest{
 		Login:    login,
 		Password: password,
@@ -58,7 +69,7 @@ func (a *App) Register(login, password string) error {
 		EncryptedVaultKeyNonce: nonce,
 		Device: &gophkeeperv1.DeviceInfo{
 			DeviceName:    "cli",
-			Platform:      gophkeeperv1.DevicePlatform_DEVICE_PLATFORM_LINUX,
+			Platform:      platform,
 			ClientVersion: "dev",
 		},
 	})
