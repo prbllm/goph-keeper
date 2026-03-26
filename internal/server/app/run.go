@@ -9,12 +9,14 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/prbllm/goph-keeper/internal/server/auth"
 	"github.com/prbllm/goph-keeper/internal/server/config"
 	"github.com/prbllm/goph-keeper/internal/server/grpcserver"
 	"github.com/prbllm/goph-keeper/internal/server/logging"
 	"github.com/prbllm/goph-keeper/internal/server/migrations"
 	"github.com/prbllm/goph-keeper/internal/server/storage/postgres"
 	"github.com/prbllm/goph-keeper/internal/server/storage/s3minio"
+	"github.com/prbllm/goph-keeper/internal/server/vault"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 )
@@ -55,11 +57,38 @@ func Run() error {
 	}
 	logger.Info("minio ready", zap.String("bucket", cfg.MinioBucket))
 
+	now := time.Now
+
+	authRepos := postgres.NewAuthRepositories(db)
+	authService := auth.NewService(
+		authRepos,
+		authRepos.SessionRepository(),
+		authRepos,
+		auth.BcryptHasher{},
+		auth.NewJWTIssuer(cfg.JWTSecret, now),
+		now,
+		time.Duration(cfg.AccessTTLSec)*time.Second,
+		time.Duration(cfg.RefreshTTLSec)*time.Second,
+		cfg.InlineThresholdBytes,
+		cfg.MaxBlobSizeBytes,
+		cfg.MaxChunkSizeBytes,
+	)
+
+	vaultRepos := postgres.NewVaultRepositories(db)
+	vaultEngine := vault.NewEngine(
+		vaultRepos.Vault(),
+		vaultRepos.Revisions(),
+		vaultRepos.ProcessedOperations(),
+		now,
+	)
+
+	_ = minioClient
+
 	deps := &grpcserver.Deps{
-		Logger: logger,
-		Cfg:    cfg,
-		DB:     db,
-		MinIO:  minioClient,
+		Logger:      logger,
+		Cfg:         cfg,
+		AuthService: authService,
+		VaultEngine: vaultEngine,
 	}
 
 	lis, err := net.Listen("tcp", cfg.GRPCAddr)

@@ -7,7 +7,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
-	"database/sql"
 	"encoding/pem"
 	"math/big"
 	"net"
@@ -17,8 +16,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/minio/minio-go/v7"
+	gophkeeperv1 "github.com/prbllm/goph-keeper/api/proto/gophkeeper/v1"
+	"github.com/prbllm/goph-keeper/internal/server/auth"
 	"github.com/prbllm/goph-keeper/internal/server/config"
+	"github.com/prbllm/goph-keeper/internal/server/vault"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -26,24 +27,40 @@ import (
 	"google.golang.org/grpc/health/grpc_health_v1"
 )
 
-type stubPool struct{}
+type stubAuthService struct{}
 
-func (stubPool) PingContext(context.Context) error { return nil }
-func (stubPool) Close() error                      { return nil }
-func (stubPool) ExecContext(context.Context, string, ...any) (sql.Result, error) {
-	return nil, nil
+func (stubAuthService) Register(context.Context, auth.RegisterInput) (*auth.RegisterOutput, error) {
+	return &auth.RegisterOutput{}, nil
 }
-func (stubPool) QueryRowContext(context.Context, string, ...any) *sql.Row { return nil }
-func (stubPool) BeginTx(context.Context, *sql.TxOptions) (*sql.Tx, error) {
-	return nil, nil
+func (stubAuthService) Login(context.Context, auth.LoginInput) (*auth.LoginOutput, error) {
+	return &auth.LoginOutput{}, nil
 }
+func (stubAuthService) Refresh(context.Context, auth.RefreshInput) (*auth.RefreshOutput, error) {
+	return &auth.RefreshOutput{}, nil
+}
+func (stubAuthService) Logout(context.Context, string) error { return nil }
+func (stubAuthService) Limits() *gophkeeperv1.Limits         { return &gophkeeperv1.Limits{} }
 
-type stubMinIO struct{}
+var (
+	_ AuthService = stubAuthService{}
+)
 
-func (stubMinIO) ListBuckets(context.Context) ([]minio.BucketInfo, error) { return nil, nil }
-func (stubMinIO) BucketExists(context.Context, string) (bool, error)      { return true, nil }
-func (stubMinIO) MakeBucket(context.Context, string, minio.MakeBucketOptions) error {
-	return nil
+type stubVaultEngine struct{}
+
+func (stubVaultEngine) Create(context.Context, string, string, vault.CreateInput) (*vault.CreateOutput, error) {
+	return &vault.CreateOutput{}, nil
+}
+func (stubVaultEngine) Update(context.Context, string, string, string, uint64, vault.UpdateInput) (*vault.UpdateOutput, error) {
+	return &vault.UpdateOutput{}, nil
+}
+func (stubVaultEngine) Delete(context.Context, string, string, string, uint64) (*vault.DeleteOutput, error) {
+	return &vault.DeleteOutput{}, nil
+}
+func (stubVaultEngine) Get(context.Context, string, string) (*vault.Item, error) {
+	return &vault.Item{}, nil
+}
+func (stubVaultEngine) List(context.Context, string, bool, int32, string) ([]*vault.Item, string, error) {
+	return nil, "", nil
 }
 
 func TestLoadServerTransportCredentials_missingFiles(t *testing.T) {
@@ -75,8 +92,10 @@ func TestNew_nilDeps(t *testing.T) {
 
 func TestNew_nilTLSCreds(t *testing.T) {
 	deps := &Deps{
-		Logger: zap.NewNop(),
-		Cfg:    &config.Config{},
+		Logger:      zap.NewNop(),
+		Cfg:         &config.Config{},
+		AuthService: stubAuthService{},
+		VaultEngine: stubVaultEngine{},
 	}
 	_, err := New(deps, nil)
 	if err == nil {
@@ -91,7 +110,12 @@ func TestNew_nilCfg(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	deps := &Deps{Logger: zap.NewNop(), Cfg: nil}
+	deps := &Deps{
+		Logger:      zap.NewNop(),
+		Cfg:         nil,
+		AuthService: stubAuthService{},
+		VaultEngine: stubVaultEngine{},
+	}
 	_, err = New(deps, creds)
 	if err == nil {
 		t.Fatal("expected error when deps.Cfg is nil")
@@ -105,14 +129,19 @@ func TestNew_nilLogger(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	deps := &Deps{Logger: nil, Cfg: &config.Config{}}
+	deps := &Deps{
+		Logger:      nil,
+		Cfg:         &config.Config{},
+		AuthService: stubAuthService{},
+		VaultEngine: stubVaultEngine{},
+	}
 	_, err = New(deps, creds)
 	if err == nil {
 		t.Fatal("expected error when deps.Logger is nil")
 	}
 }
 
-func TestNew_nilDB(t *testing.T) {
+func TestNew_nilAuthService(t *testing.T) {
 	dir := t.TempDir()
 	_, cert, key := writeTestServerTLSChain(t, dir)
 	creds, err := credentials.NewServerTLSFromFile(cert, key)
@@ -120,19 +149,18 @@ func TestNew_nilDB(t *testing.T) {
 		t.Fatal(err)
 	}
 	deps := &Deps{
-		Logger: zap.NewNop(),
-		Cfg: &config.Config{
-			JWTSecret: strings.Repeat("a", config.MinJWTSecretLen),
-		},
-		MinIO: stubMinIO{},
+		Logger:      zap.NewNop(),
+		Cfg:         &config.Config{JWTSecret: strings.Repeat("a", config.MinJWTSecretLen)},
+		AuthService: nil,
+		VaultEngine: stubVaultEngine{},
 	}
 	_, err = New(deps, creds)
 	if err == nil {
-		t.Fatal("expected error when deps.DB is nil")
+		t.Fatal("expected error when deps.AuthService is nil")
 	}
 }
 
-func TestNew_nilMinIO(t *testing.T) {
+func TestNew_nilVaultEngine(t *testing.T) {
 	dir := t.TempDir()
 	_, cert, key := writeTestServerTLSChain(t, dir)
 	creds, err := credentials.NewServerTLSFromFile(cert, key)
@@ -140,15 +168,36 @@ func TestNew_nilMinIO(t *testing.T) {
 		t.Fatal(err)
 	}
 	deps := &Deps{
-		Logger: zap.NewNop(),
-		Cfg: &config.Config{
-			JWTSecret: strings.Repeat("a", config.MinJWTSecretLen),
-		},
-		DB: stubPool{},
+		Logger:      zap.NewNop(),
+		Cfg:         &config.Config{JWTSecret: strings.Repeat("a", config.MinJWTSecretLen)},
+		AuthService: &auth.Service{},
+		VaultEngine: nil,
 	}
 	_, err = New(deps, creds)
 	if err == nil {
-		t.Fatal("expected error when deps.MinIO is nil")
+		t.Fatal("expected error when deps.VaultEngine is nil")
+	}
+}
+
+func TestNew_success(t *testing.T) {
+	dir := t.TempDir()
+	_, cert, key := writeTestServerTLSChain(t, dir)
+	creds, err := credentials.NewServerTLSFromFile(cert, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	deps := &Deps{
+		Logger:      zap.NewNop(),
+		Cfg:         &config.Config{JWTSecret: strings.Repeat("a", config.MinJWTSecretLen)},
+		AuthService: stubAuthService{},
+		VaultEngine: stubVaultEngine{},
+	}
+	srv, err := New(deps, creds)
+	if err != nil {
+		t.Fatalf("New() error = %v, want nil", err)
+	}
+	if srv == nil {
+		t.Fatal("New() returned nil server")
 	}
 }
 

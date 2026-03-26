@@ -12,7 +12,7 @@ import (
 
 type authHandler struct {
 	gophkeeperv1.UnimplementedAuthServiceServer
-	svc *auth.Service
+	svc AuthService
 }
 
 func (h authHandler) Register(ctx context.Context, req *gophkeeperv1.RegisterRequest) (*gophkeeperv1.RegisterResponse, error) {

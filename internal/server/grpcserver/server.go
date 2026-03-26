@@ -4,13 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 
 	gophkeeperv1 "github.com/prbllm/goph-keeper/api/proto/gophkeeper/v1"
 	"github.com/prbllm/goph-keeper/internal/server/auth"
 	"github.com/prbllm/goph-keeper/internal/server/config"
-	"github.com/prbllm/goph-keeper/internal/server/storage/postgres"
-	"github.com/prbllm/goph-keeper/internal/server/storage/s3minio"
 	"github.com/prbllm/goph-keeper/internal/server/vault"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -19,13 +16,26 @@ import (
 	"google.golang.org/grpc/health/grpc_health_v1"
 )
 
+// AuthService defines the subset of auth service methods required by gRPC handlers.
+type AuthService interface {
+	Register(ctx context.Context, in auth.RegisterInput) (*auth.RegisterOutput, error)
+	Login(ctx context.Context, in auth.LoginInput) (*auth.LoginOutput, error)
+	Refresh(ctx context.Context, in auth.RefreshInput) (*auth.RefreshOutput, error)
+	Logout(ctx context.Context, refreshToken string) error
+	Limits() *gophkeeperv1.Limits
+}
+
 // Deps groups runtime dependencies wired at startup for gRPC and services.
 type Deps struct {
-	Logger *zap.Logger
-	Cfg    *config.Config
-	DB     postgres.Pool
-	MinIO  s3minio.Client
+	Logger      *zap.Logger
+	Cfg         *config.Config
+	AuthService AuthService
+	VaultEngine vault.Engine
 }
+
+var (
+	_ AuthService = (*auth.Service)(nil)
+)
 
 type healthService struct {
 	gophkeeperv1.UnimplementedHealthServiceServer
@@ -45,7 +55,7 @@ func LoadServerTransportCredentials(cfg *config.Config) (credentials.TransportCr
 
 // New creates a gRPC server and registers core infra services.
 // tlsCreds must be non-nil (typically from LoadServerTransportCredentials).
-// Deps.Logger, Deps.Cfg, Deps.DB, and Deps.MinIO must be non-nil.
+// Deps.Logger, Deps.Cfg, Deps.AuthService, and Deps.VaultEngine must be non-nil.
 func New(deps *Deps, tlsCreds credentials.TransportCredentials) (*grpc.Server, error) {
 	if deps == nil {
 		return nil, fmt.Errorf("grpcserver: deps is nil")
@@ -56,14 +66,14 @@ func New(deps *Deps, tlsCreds credentials.TransportCredentials) (*grpc.Server, e
 	if deps.Cfg == nil {
 		return nil, fmt.Errorf("grpcserver: deps.Cfg is nil")
 	}
+	if deps.AuthService == nil {
+		return nil, fmt.Errorf("grpcserver: deps.AuthService is nil")
+	}
+	if deps.VaultEngine == nil {
+		return nil, fmt.Errorf("grpcserver: deps.VaultEngine is nil")
+	}
 	if tlsCreds == nil {
 		return nil, fmt.Errorf("grpcserver: tlsCreds is nil")
-	}
-	if deps.DB == nil {
-		return nil, fmt.Errorf("grpcserver: deps.DB is nil")
-	}
-	if deps.MinIO == nil {
-		return nil, fmt.Errorf("grpcserver: deps.MinIO is nil")
 	}
 
 	deps.Logger.Debug("gRPC: registering health services")
@@ -86,30 +96,10 @@ func New(deps *Deps, tlsCreds credentials.TransportCredentials) (*grpc.Server, e
 	healthServer.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
 	gophkeeperv1.RegisterHealthServiceServer(s, healthService{})
 
-	now := time.Now
-
-	authRepos := postgres.NewAuthRepositories(deps.DB)
-	authService := auth.NewService(
-		authRepos,
-		authRepos.SessionRepository(),
-		authRepos,
-		auth.BcryptHasher{},
-		auth.NewJWTIssuer(deps.Cfg.JWTSecret, now),
-		now,
-		time.Duration(deps.Cfg.AccessTTLSec)*time.Second,
-		time.Duration(deps.Cfg.RefreshTTLSec)*time.Second,
-		deps.Cfg.InlineThresholdBytes,
-		deps.Cfg.MaxBlobSizeBytes,
-		deps.Cfg.MaxChunkSizeBytes,
-	)
-	gophkeeperv1.RegisterAuthServiceServer(s, authHandler{svc: authService})
+	gophkeeperv1.RegisterAuthServiceServer(s, authHandler{svc: deps.AuthService})
 
 	deps.Logger.Debug("gRPC: registering vault service")
-	vaultRepo := postgres.NewVaultRepository(deps.DB)
-	vaultRevisions := postgres.NewRevisionLogRepository(deps.DB)
-	vaultProcessed := postgres.NewProcessedOperationsRepository(deps.DB)
-	vaultEngine := vault.NewEngine(vaultRepo, vaultRevisions, vaultProcessed, now)
-	gophkeeperv1.RegisterVaultServiceServer(s, vaultHandler{engine: vaultEngine})
+	gophkeeperv1.RegisterVaultServiceServer(s, vaultHandler{engine: deps.VaultEngine})
 
 	return s, nil
 }
