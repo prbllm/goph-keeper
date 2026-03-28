@@ -85,7 +85,7 @@ func TestSync_Success(t *testing.T) {
 		Times(1)
 
 	// Act
-	err := app.Sync()
+	err := app.Sync(t.Context())
 
 	// Assert
 	assert.NoError(t, err)
@@ -117,7 +117,7 @@ func TestSync_ServerError(t *testing.T) {
 		Times(1)
 
 	// Act
-	err := app.Sync()
+	err := app.Sync(t.Context())
 
 	// Assert
 	assert.Error(t, err)
@@ -188,7 +188,7 @@ func TestSync_ApplyRemoteChanges_Created(t *testing.T) {
 		Times(1)
 
 	// Act
-	err := app.Sync()
+	err := app.Sync(t.Context())
 
 	// Assert
 	assert.NoError(t, err)
@@ -249,7 +249,7 @@ func TestSync_ApplyRemoteChanges_Updated(t *testing.T) {
 		Times(1)
 
 	// Act
-	err := app.Sync()
+	err := app.Sync(t.Context())
 
 	// Assert
 	assert.NoError(t, err)
@@ -304,7 +304,7 @@ func TestSync_ApplyRemoteChanges_Deleted(t *testing.T) {
 		Times(1)
 
 	// Act
-	err := app.Sync()
+	err := app.Sync(t.Context())
 
 	// Assert
 	assert.NoError(t, err)
@@ -362,7 +362,7 @@ func TestSync_MultipleRemoteChanges(t *testing.T) {
 		Times(1)
 
 	// Act
-	err := app.Sync()
+	err := app.Sync(t.Context())
 
 	// Assert
 	assert.NoError(t, err)
@@ -404,7 +404,7 @@ func TestSync_NoPendingOperations(t *testing.T) {
 		Times(1)
 
 	// Act
-	err := app.Sync()
+	err := app.Sync(t.Context())
 
 	// Assert
 	assert.NoError(t, err)
@@ -442,7 +442,7 @@ func TestSync_SaveSyncError(t *testing.T) {
 		Times(1)
 
 	// Act
-	err := app.Sync()
+	err := app.Sync(t.Context())
 
 	// Assert
 	assert.Error(t, err)
@@ -697,7 +697,7 @@ func BenchmarkSync(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		err := app.Sync()
+		err := app.Sync(b.Context())
 		if err != nil {
 			b.Fatal(err)
 		}

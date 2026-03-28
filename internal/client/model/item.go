@@ -23,6 +23,8 @@ type Item struct {
 	Metadata *gophkeeperv1.EncryptedField
 	// Payload — зашифрованная полезная нагрузка (основные данные)
 	Payload *gophkeeperv1.EncryptedField
+	// BlobID - идентификатор загруженного файла
+	BlobID string
 
 	// Deleted — флаг удаления элемента (мягкое удаление)
 	Deleted bool

@@ -15,7 +15,7 @@ import (
 // Отправляет ожидающие операции и получает удалённые изменения.
 // Обновляет состояние синхронизации и очищает список операций.
 // Возвращает ошибку в случае неудачи синхронизации.
-func (a *App) Sync() error {
+func (a *App) Sync(ctx context.Context) error {
 	req := &gophkeeperv1.SyncRequest{
 		ClientRevision: a.SyncState.LastRevision,
 	}
@@ -31,7 +31,7 @@ func (a *App) Sync() error {
 	}
 
 	// 1. вызываем сервер
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	resp, err := a.Client.SyncClient().Sync(ctx, req)
 	if err != nil {

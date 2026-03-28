@@ -4,10 +4,13 @@ package crypto
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
 	"errors"
 
 	"golang.org/x/crypto/chacha20poly1305"
 )
+
+const NonceSize = chacha20poly1305.NonceSizeX
 
 // Encrypt шифрует данные с использованием алгоритма XChaCha20-Poly1305.
 // Принимает ключ шифрования (32 байта) и открытый текст.
@@ -19,7 +22,7 @@ func Encrypt(key, plaintext []byte) ([]byte, []byte, error) {
 		return nil, nil, err
 	}
 
-	nonce := make([]byte, chacha20poly1305.NonceSizeX)
+	nonce := make([]byte, NonceSize)
 	if _, err := rand.Read(nonce); err != nil {
 		return nil, nil, err
 	}
@@ -38,9 +41,15 @@ func Decrypt(key, nonce, ciphertext []byte) ([]byte, error) {
 		return nil, err
 	}
 
-	if len(nonce) != chacha20poly1305.NonceSizeX {
+	if len(nonce) != NonceSize {
 		return nil, errors.New("invalid nonce size")
 	}
 
 	return aead.Open(nil, nonce, ciphertext, nil)
+}
+
+// SHA256 вычисляет хеш данных
+func SHA256(data []byte) []byte {
+	hash := sha256.Sum256(data)
+	return hash[:]
 }

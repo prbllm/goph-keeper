@@ -5,6 +5,8 @@ package cli
 import (
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"syscall"
 
 	gophkeeperv1 "github.com/prbllm/goph-keeper/api/proto/gophkeeper/v1"
@@ -21,9 +23,10 @@ import (
 // Поддерживает типы: text, credential, card.
 // Запрашивает пароль для расшифровки ключа и добавляет элемент локально.
 var addCmd = &cobra.Command{
-	Use:   "add [type] [data]",
-	Short: "Add secret",
-	Args:  cobra.RangeArgs(2, 5),
+	Use:     "add [type] [data]",
+	Short:   "Add secret",
+	GroupID: "vault",
+	Args:    cobra.RangeArgs(2, 5),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		var (
 			itemType gophkeeperv1.ItemType
@@ -123,7 +126,7 @@ var addCmd = &cobra.Command{
 			return errors.New("login required (DEK missing)")
 		}
 
-		if err = app.AddItem(itemType, []byte("title"), nil, payload); err != nil {
+		if err = app.AddItem(itemType, []byte(itemType.String()), nil, payload, ""); err != nil {
 			return err
 		}
 
@@ -136,8 +139,9 @@ var addCmd = &cobra.Command{
 // listCmd — команда просмотра списка всех секретов.
 // Запрашивает пароль, расшифровывает ключ и выводит список элементов.
 var listCmd = &cobra.Command{
-	Use:   "list",
-	Short: "List secrets",
+	Use:     "list",
+	Short:   "List secrets",
+	GroupID: "vault",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		dataDirPath, err := cmd.Flags().GetString("data-dir")
 		if err != nil {
@@ -207,6 +211,7 @@ var listCmd = &cobra.Command{
 			fmt.Println("ID:", it.ID)
 			fmt.Println("Title:", title)
 			fmt.Println("Meta:", meta)
+			fmt.Println("BlobID:", it.BlobID)
 			fmt.Println("---")
 		}
 
@@ -217,9 +222,10 @@ var listCmd = &cobra.Command{
 // getCmd — команда получения деталей конкретного секрета.
 // Принимает идентификатор элемента, запрашивает пароль и выводит все поля.
 var getCmd = &cobra.Command{
-	Use:   "get [id]",
-	Short: "Get secret",
-	Args:  cobra.ExactArgs(1),
+	Use:     "get [id]",
+	Short:   "Get secret",
+	Args:    cobra.ExactArgs(1),
+	GroupID: "vault",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		id := args[0]
 
@@ -294,9 +300,10 @@ var getCmd = &cobra.Command{
 // updateCmd — команда обновления существующего секрета.
 // Принимает идентификатор и новые данные, запрашивает пароль и обновляет элемент.
 var updateCmd = &cobra.Command{
-	Use:   "update [id] [type] [data]",
-	Short: "Update secret",
-	Args:  cobra.RangeArgs(3, 5),
+	Use:     "update [id] [type] [data]",
+	Short:   "Update secret",
+	Args:    cobra.RangeArgs(3, 5),
+	GroupID: "vault",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		id := args[0]
 
@@ -395,7 +402,7 @@ var updateCmd = &cobra.Command{
 			return err
 		}
 
-		if err = app.UpdateItem(id, itemType, []byte("title"), nil, payload); err != nil {
+		if err = app.UpdateItem(id, itemType, []byte(itemType.String()), nil, payload); err != nil {
 			return err
 		}
 
@@ -408,9 +415,10 @@ var updateCmd = &cobra.Command{
 // deleteCmd — команда удаления секрета из хранилища.
 // Принимает идентификатор элемента, запрашивает пароль и удаляет элемент.
 var deleteCmd = &cobra.Command{
-	Use:   "delete [id]",
-	Short: "Delete secret",
-	Args:  cobra.ExactArgs(1),
+	Use:     "delete [id]",
+	Short:   "Delete secret",
+	Args:    cobra.ExactArgs(1),
+	GroupID: "vault",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		dataDirPath, err := cmd.Flags().GetString("data-dir")
 		if err != nil {
@@ -467,6 +475,135 @@ var deleteCmd = &cobra.Command{
 
 		fmt.Println("Deleted successfully. Pending sync...")
 
+		return nil
+	},
+}
+
+// uploadCmd - команда загрузки файла
+var uploadCmd = &cobra.Command{
+	Use:     "upload [file]",
+	Short:   "Upload file to vault",
+	Args:    cobra.ExactArgs(1),
+	GroupID: "file",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		filePath := args[0]
+
+		dataDirPath, _ := cmd.Flags().GetString("data-dir")
+		localStorage, err := storage.New(dataDirPath)
+		if err != nil {
+			return err
+		}
+
+		state, err := localStorage.Load()
+		if err != nil {
+			return err
+		}
+
+		serverAddr, _ := cmd.Flags().GetString("server")
+		insecure, _ := cmd.Flags().GetBool("insecure")
+		tlsCA, _ := cmd.Flags().GetString("tls-ca")
+
+		client, err := transport.New(serverAddr, state.AccessToken, transport.DialOptions{
+			Insecure: insecure,
+			CAPath:   tlsCA,
+		})
+		if err != nil {
+			return err
+		}
+		defer client.Close()
+
+		app, err := app.New(client, localStorage)
+		if err != nil {
+			return err
+		}
+
+		password, err := promptPassword()
+		if err != nil {
+			return err
+		}
+
+		if err = app.Unlock(password); err != nil {
+			return err
+		}
+
+		fileName := filepath.Base(filePath)
+		blobID, err := app.UploadFile(cmd.Context(), filePath, fileName)
+		if err != nil {
+			return err
+		}
+
+		if err = app.AddItem(gophkeeperv1.ItemType_ITEM_TYPE_BINARY, []byte(gophkeeperv1.ItemType_ITEM_TYPE_BINARY.String()), []byte(fileName), nil, blobID); err != nil {
+			return nil
+		}
+
+		fmt.Println("File uploaded successfully. Pending sync...")
+		return nil
+	},
+}
+
+// downloadCmd - команда выгрузки файла
+var downloadCmd = &cobra.Command{
+	Use:     "download [id] [output]",
+	Short:   "Download file from vault",
+	Args:    cobra.ExactArgs(2),
+	GroupID: "file",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		itemID := args[0]
+		outputPath := args[1]
+
+		dataDirPath, _ := cmd.Flags().GetString("data-dir")
+		localStorage, err := storage.New(dataDirPath)
+		if err != nil {
+			return err
+		}
+
+		state, err := localStorage.Load()
+		if err != nil {
+			return err
+		}
+
+		serverAddr, _ := cmd.Flags().GetString("server")
+		insecure, _ := cmd.Flags().GetBool("insecure")
+		tlsCA, _ := cmd.Flags().GetString("tls-ca")
+
+		client, err := transport.New(serverAddr, state.AccessToken, transport.DialOptions{
+			Insecure: insecure,
+			CAPath:   tlsCA,
+		})
+		if err != nil {
+			return err
+		}
+		defer client.Close()
+
+		app, err := app.New(client, localStorage)
+		if err != nil {
+			return err
+		}
+
+		password, err := promptPassword()
+		if err != nil {
+			return err
+		}
+
+		if err = app.Unlock(password); err != nil {
+			return err
+		}
+
+		data, err := app.DownloadFile(cmd.Context(), itemID)
+		if err != nil {
+			return err
+		}
+
+		dir := filepath.Dir(outputPath)
+		if err = os.MkdirAll(dir, 0700); err != nil {
+			return err
+		}
+
+		if err = os.WriteFile(outputPath, []byte(data), 0600); err != nil {
+			return err
+		}
+
+		fmt.Println("File downloaded successfully")
 		return nil
 	},
 }

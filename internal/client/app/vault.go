@@ -4,9 +4,13 @@
 package app
 
 import (
+	"context"
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"io"
+	"os"
+	"time"
 
 	gophkeeperv1 "github.com/prbllm/goph-keeper/api/proto/gophkeeper/v1"
 
@@ -18,7 +22,7 @@ import (
 // Принимает тип элемента, заголовок, метаданные и полезную нагрузку.
 // Шифрует данные, сохраняет локально и добавляет операцию в очередь синхронизации.
 // Возвращает ошибку при отсутствии ключа шифрования или ошибках сохранения.
-func (a *App) AddItem(itemType gophkeeperv1.ItemType, title, metadata, payload []byte) error {
+func (a *App) AddItem(itemType gophkeeperv1.ItemType, title, metadata, payload []byte, blobId string) error {
 	if len(a.DEK) == 0 {
 		return errors.New("login required (DEK missing)")
 	}
@@ -48,6 +52,7 @@ func (a *App) AddItem(itemType gophkeeperv1.ItemType, title, metadata, payload [
 		Title:    encTitle,
 		Metadata: encMeta,
 		Payload:  encPayload,
+		BlobID:   blobId,
 	}
 
 	// local cache
@@ -178,6 +183,171 @@ func (a *App) DeleteItem(itemID string) error {
 	})
 
 	return a.LocalStorage.SaveSync(a.SyncState)
+}
+
+// UploadFile загружает файл в blob-хранилище.
+// Принимает путь к загружаемому файлу.
+// Возвращает blobID загруженного файла.
+func (a *App) UploadFile(ctx context.Context, filePath, fileName string) (string, error) {
+	if len(a.DEK) == 0 {
+		return "", errors.New("login required (DEK missing)")
+	}
+
+	// Читаем файл
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return "", err
+	}
+
+	// Шифруем данные
+	nonce, encryptedData, err := crypto.Encrypt(a.DEK, data)
+	if err != nil {
+		return "", err
+	}
+
+	// Добавляем nonce перед зашифрованными данными
+	blobData := append(nonce, encryptedData...)
+
+	// Вычисляем хэш-сумму
+	blobChecksum := crypto.SHA256(blobData)
+
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+	defer cancel()
+
+	// Начинаем загрузку
+	startResp, err := a.Client.BlobClient().StartBlobUpload(ctx, &gophkeeperv1.StartBlobUploadRequest{
+		ExpectedSize:     uint64(len(blobData)),
+		ExpectedChecksum: blobChecksum,
+		ContentKind:      "application/octet-stream",
+		FileName:         fileName,
+		MimeType:         "application/octet-stream",
+	})
+	if err != nil {
+		return "", err
+	}
+
+	// Загружаем чанками
+	stream, err := a.Client.BlobClient().UploadBlob(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	// Отправляем header
+	err = stream.Send(&gophkeeperv1.UploadBlobRequest{
+		Body: &gophkeeperv1.UploadBlobRequest_Header{
+			Header: &gophkeeperv1.UploadBlobHeader{
+				UploadSessionId: startResp.UploadSessionId,
+			},
+		},
+	})
+	if err != nil {
+		return "", err
+	}
+
+	// Отправляем данные чанками
+	maxChunkSize := int(startResp.MaxChunkSize)
+	for i := 0; i < len(blobData); i += maxChunkSize {
+		end := min(i+maxChunkSize, len(blobData))
+
+		chunk := &gophkeeperv1.UploadBlobChunk{
+			ChunkIndex: uint64(i / maxChunkSize),
+			Data:       blobData[i:end],
+		}
+
+		err = stream.Send(&gophkeeperv1.UploadBlobRequest{
+			Body: &gophkeeperv1.UploadBlobRequest_Chunk{
+				Chunk: chunk,
+			},
+		})
+		if err != nil {
+			return "", err
+		}
+	}
+
+	// Завершаем загрузку
+	uploadResp, err := stream.CloseAndRecv()
+	if err != nil {
+		return "", err
+	}
+
+	if uploadResp.Status != gophkeeperv1.BlobStatus_BLOB_STATUS_COMMITTED {
+		// Фиксируем загрузку
+		commitResp, err := a.Client.BlobClient().CommitBlobUpload(ctx, &gophkeeperv1.CommitBlobUploadRequest{
+			UploadSessionId: startResp.UploadSessionId,
+		})
+		if err != nil {
+			return "", err
+		}
+
+		if commitResp.Blob == nil {
+			return "", errors.New("commit failed: no blob info")
+		}
+	}
+
+	return startResp.BlobId, nil
+}
+
+// DownloadFile скачивает файл из blob-хранилища.
+// Принимает blobID и путь, куда требуется сохранить файл.
+func (a *App) DownloadFile(ctx context.Context, blobID string) ([]byte, error) {
+	if len(a.DEK) == 0 {
+		return nil, errors.New("login required (DEK missing)")
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+	defer cancel()
+
+	// Инициируем потоковую загрузку
+	stream, err := a.Client.BlobClient().DownloadBlob(ctx, &gophkeeperv1.DownloadBlobRequest{
+		BlobId: blobID,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// Читаем заголовок
+	headerMsg, err := stream.Recv()
+	if err != nil {
+		return nil, err
+	}
+
+	header := headerMsg.GetHeader()
+	if header == nil || header.Blob == nil {
+		return nil, errors.New("invalid download response: no header")
+	}
+
+	// Читаем чанки данных
+	var encryptedData []byte
+	for {
+		chunkMsg, errStream := stream.Recv()
+		if errStream != nil {
+			if errStream == io.EOF {
+				break
+			}
+			return nil, errStream
+		}
+
+		chunk := chunkMsg.GetChunk()
+		if chunk != nil {
+			encryptedData = append(encryptedData, chunk.Data...)
+		}
+	}
+
+	// Извлекаем Nonce и шифрованные данные
+	if len(encryptedData) < crypto.NonceSize {
+		return nil, errors.New("invalid blob data: too short")
+	}
+
+	nonce := encryptedData[:crypto.NonceSize]
+	ciphertext := encryptedData[crypto.NonceSize:]
+
+	// Расшифровываем данные
+	decryptedData, err := crypto.Decrypt(a.DEK, nonce, ciphertext)
+	if err != nil {
+		return nil, err
+	}
+
+	return decryptedData, nil
 }
 
 // DecryptItem расшифровывает все поля элемента.
