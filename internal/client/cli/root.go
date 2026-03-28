@@ -38,15 +38,25 @@ func init() {
 	rootCmd.PersistentFlags().MarkHidden("insecure")
 	rootCmd.PersistentFlags().String("tls-ca", "cert.pem", "path to self-signed CA certificate")
 	// auth
+	authGroup := &cobra.Group{ID: "auth", Title: "Authentication Commands:"}
+	rootCmd.AddGroup(authGroup)
 	rootCmd.AddCommand(registerCmd)
 	rootCmd.AddCommand(loginCmd)
 	// vault
+	vaultGroup := &cobra.Group{ID: "vault", Title: "Vault Commands:"}
+	rootCmd.AddGroup(vaultGroup)
 	rootCmd.AddCommand(addCmd)
 	rootCmd.AddCommand(listCmd)
 	rootCmd.AddCommand(getCmd)
 	rootCmd.AddCommand(updateCmd)
 	rootCmd.AddCommand(deleteCmd)
+	fileGroup := &cobra.Group{ID: "file", Title: "File Commands:"}
+	rootCmd.AddGroup(fileGroup)
+	rootCmd.AddCommand(uploadCmd)
+	rootCmd.AddCommand(downloadCmd)
 	// sync
+	syncGroup := &cobra.Group{ID: "sync", Title: "Sync Commands:"}
+	rootCmd.AddGroup(syncGroup)
 	rootCmd.AddCommand(syncCmd)
 	// version
 	rootCmd.AddCommand(versionCmd)

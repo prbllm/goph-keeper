@@ -3,6 +3,8 @@ package app
 import (
 	"crypto/rand"
 	"errors"
+	"io"
+	"os"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -59,7 +61,7 @@ func TestAddItem_Success(t *testing.T) {
 		Times(1)
 
 	// Act
-	err := app.AddItem(gophkeeperv1.ItemType_ITEM_TYPE_TEXT, title, metadata, payload)
+	err := app.AddItem(gophkeeperv1.ItemType_ITEM_TYPE_TEXT, title, metadata, payload, "")
 
 	// Assert
 	assert.NoError(t, err)
@@ -85,7 +87,7 @@ func TestAddItem_NoDEK(t *testing.T) {
 	mockStorage.EXPECT().SaveSync(gomock.Any()).Times(0)
 
 	// Act
-	err := app.AddItem(gophkeeperv1.ItemType_ITEM_TYPE_TEXT, []byte("title"), nil, []byte("data"))
+	err := app.AddItem(gophkeeperv1.ItemType_ITEM_TYPE_TEXT, []byte("title"), nil, []byte("data"), "")
 
 	// Assert
 	assert.Error(t, err)
@@ -107,7 +109,7 @@ func TestAddItem_EncryptError(t *testing.T) {
 	}
 
 	// Act
-	err := app.AddItem(gophkeeperv1.ItemType_ITEM_TYPE_TEXT, []byte("title"), nil, []byte("data"))
+	err := app.AddItem(gophkeeperv1.ItemType_ITEM_TYPE_TEXT, []byte("title"), nil, []byte("data"), "")
 
 	// Assert
 	assert.Error(t, err)
@@ -136,7 +138,7 @@ func TestAddItem_UpsertError(t *testing.T) {
 	mockStorage.EXPECT().SaveSync(gomock.Any()).Times(0)
 
 	// Act
-	err := app.AddItem(gophkeeperv1.ItemType_ITEM_TYPE_TEXT, []byte("title"), nil, []byte("data"))
+	err := app.AddItem(gophkeeperv1.ItemType_ITEM_TYPE_TEXT, []byte("title"), nil, []byte("data"), "")
 
 	// Assert
 	assert.Error(t, err)
@@ -722,7 +724,7 @@ func BenchmarkAddItem(b *testing.B) {
 	payload := []byte("benchmark payload")
 
 	for b.Loop() {
-		err := app.AddItem(gophkeeperv1.ItemType_ITEM_TYPE_TEXT, title, nil, payload)
+		err := app.AddItem(gophkeeperv1.ItemType_ITEM_TYPE_TEXT, title, nil, payload, "")
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -753,6 +755,821 @@ func BenchmarkDecryptItem(b *testing.B) {
 
 	for b.Loop() {
 		_, _, _, err := app.DecryptItem(item)
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+// vault_test.go
+
+// ... существующие тесты ...
+
+func TestUploadFile_Success(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockStorage := mocks.NewMockLocalStorage(ctrl)
+	mockBlobClient := mocks.NewMockBlobServiceClient(ctrl)
+	mockClient := mocks.NewMockClient(ctrl)
+
+	// Создаём временный файл для загрузки
+	tmpFile, err := os.CreateTemp("", "test-upload-*.txt")
+	assert.NoError(t, err)
+	defer os.Remove(tmpFile.Name())
+
+	testData := []byte("test file content for upload")
+	_, err = tmpFile.Write(testData)
+	assert.NoError(t, err)
+	tmpFile.Close()
+
+	// Генерируем DEK
+	dek := make([]byte, 32)
+	_, _ = rand.Read(dek)
+
+	app := &App{
+		Client:       mockClient,
+		DEK:          dek,
+		AuthState:    &model.AuthState{},
+		SyncState:    &model.SyncState{},
+		LocalStorage: mockStorage,
+	}
+
+	// Мокаем BlobClient
+	mockClient.EXPECT().BlobClient().Return(mockBlobClient).AnyTimes()
+
+	// Мокаем StartBlobUpload
+	mockBlobClient.EXPECT().StartBlobUpload(gomock.Any(), gomock.Any()).
+		Return(&gophkeeperv1.StartBlobUploadResponse{
+			UploadSessionId: "session-123",
+			BlobId:          "blob-456",
+			MaxChunkSize:    1024 * 1024,
+		}, nil).
+		Times(1)
+
+	// Мокаем UploadBlob stream
+	mockUploadStream := mocks.NewMockBlobService_UploadBlobClient(ctrl)
+	mockBlobClient.EXPECT().UploadBlob(gomock.Any()).
+		Return(mockUploadStream, nil).
+		Times(1)
+
+	// Ожидаем Send для header
+	mockUploadStream.EXPECT().Send(gomock.Any()).Return(nil).Times(1)
+	// Ожидаем Send для chunks (1 чанк для маленьких данных)
+	mockUploadStream.EXPECT().Send(gomock.Any()).Return(nil).Times(1)
+	// Ожидаем CloseAndRecv
+	mockUploadStream.EXPECT().CloseAndRecv().
+		Return(&gophkeeperv1.UploadBlobResponse{
+			Status: gophkeeperv1.BlobStatus_BLOB_STATUS_COMMITTED,
+		}, nil).
+		Times(1)
+
+	// Act
+	blobID, err := app.UploadFile(t.Context(), tmpFile.Name(), "")
+
+	// Assert
+	assert.NoError(t, err)
+	assert.Equal(t, "blob-456", blobID)
+}
+
+func TestUploadFile_NoDEK(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockStorage := mocks.NewMockLocalStorage(ctrl)
+	mockClient := mocks.NewMockClient(ctrl)
+
+	app := &App{
+		Client:       mockClient,
+		DEK:          nil, // Отсутствует DEK
+		AuthState:    &model.AuthState{},
+		SyncState:    &model.SyncState{},
+		LocalStorage: mockStorage,
+	}
+
+	// Создаём временный файл
+	tmpFile, err := os.CreateTemp("", "test-upload-*.txt")
+	assert.NoError(t, err)
+	defer os.Remove(tmpFile.Name())
+	tmpFile.Close()
+
+	// BlobClient не должен быть вызван
+	mockClient.EXPECT().BlobClient().Times(0)
+
+	// Act
+	blobID, err := app.UploadFile(t.Context(), tmpFile.Name(), "")
+
+	// Assert
+	assert.Error(t, err)
+	assert.Equal(t, "login required (DEK missing)", err.Error())
+	assert.Empty(t, blobID)
+}
+
+func TestUploadFile_FileNotFound(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockStorage := mocks.NewMockLocalStorage(ctrl)
+	mockClient := mocks.NewMockClient(ctrl)
+
+	dek := make([]byte, 32)
+	_, _ = rand.Read(dek)
+
+	app := &App{
+		Client:       mockClient,
+		DEK:          dek,
+		AuthState:    &model.AuthState{},
+		SyncState:    &model.SyncState{},
+		LocalStorage: mockStorage,
+	}
+
+	// BlobClient не должен быть вызван (ошибка до этого)
+	mockClient.EXPECT().BlobClient().Times(0)
+
+	// Act
+	blobID, err := app.UploadFile(t.Context(), "/nonexistent/path/file.txt", "")
+
+	// Assert
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "no such file")
+	assert.Empty(t, blobID)
+}
+
+func TestUploadFile_StartUploadError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockStorage := mocks.NewMockLocalStorage(ctrl)
+	mockBlobClient := mocks.NewMockBlobServiceClient(ctrl)
+	mockClient := mocks.NewMockClient(ctrl)
+
+	// Создаём временный файл
+	tmpFile, err := os.CreateTemp("", "test-upload-*.txt")
+	assert.NoError(t, err)
+	defer os.Remove(tmpFile.Name())
+	tmpFile.Close()
+
+	dek := make([]byte, 32)
+	_, _ = rand.Read(dek)
+
+	app := &App{
+		Client:       mockClient,
+		DEK:          dek,
+		AuthState:    &model.AuthState{},
+		SyncState:    &model.SyncState{},
+		LocalStorage: mockStorage,
+	}
+
+	mockClient.EXPECT().BlobClient().Return(mockBlobClient).AnyTimes()
+
+	// Мокаем ошибку StartBlobUpload
+	mockBlobClient.EXPECT().StartBlobUpload(gomock.Any(), gomock.Any()).
+		Return(nil, errors.New("upload service unavailable")).
+		Times(1)
+
+	// Act
+	blobID, err := app.UploadFile(t.Context(), tmpFile.Name(), "")
+
+	// Assert
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "upload service unavailable")
+	assert.Empty(t, blobID)
+}
+
+func TestUploadFile_UploadStreamError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockStorage := mocks.NewMockLocalStorage(ctrl)
+	mockBlobClient := mocks.NewMockBlobServiceClient(ctrl)
+	mockClient := mocks.NewMockClient(ctrl)
+
+	// Создаём временный файл
+	tmpFile, err := os.CreateTemp("", "test-upload-*.txt")
+	assert.NoError(t, err)
+	defer os.Remove(tmpFile.Name())
+	tmpFile.Close()
+
+	dek := make([]byte, 32)
+	_, _ = rand.Read(dek)
+
+	app := &App{
+		Client:       mockClient,
+		DEK:          dek,
+		AuthState:    &model.AuthState{},
+		SyncState:    &model.SyncState{},
+		LocalStorage: mockStorage,
+	}
+
+	mockClient.EXPECT().BlobClient().Return(mockBlobClient).AnyTimes()
+
+	mockBlobClient.EXPECT().StartBlobUpload(gomock.Any(), gomock.Any()).
+		Return(&gophkeeperv1.StartBlobUploadResponse{
+			UploadSessionId: "session-123",
+			BlobId:          "blob-456",
+			MaxChunkSize:    1024 * 1024,
+		}, nil).
+		Times(1)
+
+	// Мокаем ошибку создания stream
+	mockBlobClient.EXPECT().UploadBlob(gomock.Any()).
+		Return(nil, errors.New("stream creation failed")).
+		Times(1)
+
+	// Act
+	blobID, err := app.UploadFile(t.Context(), tmpFile.Name(), "")
+
+	// Assert
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "stream creation failed")
+	assert.Empty(t, blobID)
+}
+
+func TestDownloadFile_Success(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockStorage := mocks.NewMockLocalStorage(ctrl)
+	mockBlobClient := mocks.NewMockBlobServiceClient(ctrl)
+	mockClient := mocks.NewMockClient(ctrl)
+
+	// Генерируем DEK и тестовые данные
+	dek := make([]byte, 32)
+	_, _ = rand.Read(dek)
+
+	testData := []byte("test file content for download")
+	nonce, encryptedData, err := crypto.Encrypt(dek, testData)
+	assert.NoError(t, err)
+	blobData := append(nonce, encryptedData...)
+
+	app := &App{
+		Client:       mockClient,
+		DEK:          dek,
+		AuthState:    &model.AuthState{},
+		SyncState:    &model.SyncState{},
+		LocalStorage: mockStorage,
+	}
+
+	mockClient.EXPECT().BlobClient().Return(mockBlobClient).AnyTimes()
+
+	// Мокаем DownloadBlob stream
+	mockDownloadStream := mocks.NewMockBlobService_DownloadBlobClient(ctrl)
+	mockBlobClient.EXPECT().DownloadBlob(gomock.Any(), gomock.Any()).
+		Return(mockDownloadStream, nil).
+		Times(1)
+
+	// Ожидаем Recv для header
+	mockDownloadStream.EXPECT().Recv().
+		Return(&gophkeeperv1.DownloadBlobResponse{
+			Body: &gophkeeperv1.DownloadBlobResponse_Header{
+				Header: &gophkeeperv1.DownloadBlobHeader{
+					Blob: &gophkeeperv1.BlobInfo{
+						BlobId: "blob-456",
+					},
+				},
+			},
+		}, nil).
+		Times(1)
+
+	// Ожидаем Recv для chunks (1 чанк для маленьких данных)
+	mockDownloadStream.EXPECT().Recv().
+		Return(&gophkeeperv1.DownloadBlobResponse{
+			Body: &gophkeeperv1.DownloadBlobResponse_Chunk{
+				Chunk: &gophkeeperv1.DownloadBlobChunk{
+					ChunkIndex: 0,
+					Data:       blobData,
+				},
+			},
+		}, nil).
+		Times(1)
+
+	// Ожидаем EOF
+	mockDownloadStream.EXPECT().Recv().
+		Return(nil, io.EOF).
+		Times(1)
+
+	// Act
+	downloadedData, err := app.DownloadFile(t.Context(), "blob-456")
+
+	// Assert
+	assert.NoError(t, err)
+	assert.Equal(t, testData, downloadedData)
+}
+
+func TestDownloadFile_NoDEK(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockStorage := mocks.NewMockLocalStorage(ctrl)
+	mockClient := mocks.NewMockClient(ctrl)
+
+	app := &App{
+		Client:       mockClient,
+		DEK:          nil, // Отсутствует DEK
+		AuthState:    &model.AuthState{},
+		SyncState:    &model.SyncState{},
+		LocalStorage: mockStorage,
+	}
+
+	// BlobClient не должен быть вызван
+	mockClient.EXPECT().BlobClient().Times(0)
+
+	// Act
+	data, err := app.DownloadFile(t.Context(), "blob-456")
+
+	// Assert
+	assert.Error(t, err)
+	assert.Equal(t, "login required (DEK missing)", err.Error())
+	assert.Nil(t, data)
+}
+
+func TestDownloadFile_BlobNotFound(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockStorage := mocks.NewMockLocalStorage(ctrl)
+	mockBlobClient := mocks.NewMockBlobServiceClient(ctrl)
+	mockClient := mocks.NewMockClient(ctrl)
+
+	dek := make([]byte, 32)
+	_, _ = rand.Read(dek)
+
+	app := &App{
+		Client:       mockClient,
+		DEK:          dek,
+		AuthState:    &model.AuthState{},
+		SyncState:    &model.SyncState{},
+		LocalStorage: mockStorage,
+	}
+
+	mockClient.EXPECT().BlobClient().Return(mockBlobClient).AnyTimes()
+
+	// Мокаем ошибку DownloadBlob
+	mockBlobClient.EXPECT().DownloadBlob(gomock.Any(), gomock.Any()).
+		Return(nil, errors.New("blob not found")).
+		Times(1)
+
+	// Act
+	data, err := app.DownloadFile(t.Context(), "nonexistent-blob")
+
+	// Assert
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "blob not found")
+	assert.Nil(t, data)
+}
+
+func TestDownloadFile_InvalidHeader(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockStorage := mocks.NewMockLocalStorage(ctrl)
+	mockBlobClient := mocks.NewMockBlobServiceClient(ctrl)
+	mockClient := mocks.NewMockClient(ctrl)
+
+	dek := make([]byte, 32)
+	_, _ = rand.Read(dek)
+
+	app := &App{
+		Client:       mockClient,
+		DEK:          dek,
+		AuthState:    &model.AuthState{},
+		SyncState:    &model.SyncState{},
+		LocalStorage: mockStorage,
+	}
+
+	mockClient.EXPECT().BlobClient().Return(mockBlobClient).AnyTimes()
+
+	mockDownloadStream := mocks.NewMockBlobService_DownloadBlobClient(ctrl)
+	mockBlobClient.EXPECT().DownloadBlob(gomock.Any(), gomock.Any()).
+		Return(mockDownloadStream, nil).
+		Times(1)
+
+	// Возвращаем ответ без header
+	mockDownloadStream.EXPECT().Recv().
+		Return(&gophkeeperv1.DownloadBlobResponse{}, nil).
+		Times(1)
+
+	// Act
+	data, err := app.DownloadFile(t.Context(), "blob-456")
+
+	// Assert
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "no header")
+	assert.Nil(t, data)
+}
+
+func TestDownloadFile_DataTooShort(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockStorage := mocks.NewMockLocalStorage(ctrl)
+	mockBlobClient := mocks.NewMockBlobServiceClient(ctrl)
+	mockClient := mocks.NewMockClient(ctrl)
+
+	dek := make([]byte, 32)
+	_, _ = rand.Read(dek)
+
+	app := &App{
+		Client:       mockClient,
+		DEK:          dek,
+		AuthState:    &model.AuthState{},
+		SyncState:    &model.SyncState{},
+		LocalStorage: mockStorage,
+	}
+
+	mockClient.EXPECT().BlobClient().Return(mockBlobClient).AnyTimes()
+
+	mockDownloadStream := mocks.NewMockBlobService_DownloadBlobClient(ctrl)
+	mockBlobClient.EXPECT().DownloadBlob(gomock.Any(), gomock.Any()).
+		Return(mockDownloadStream, nil).
+		Times(1)
+
+	// Header
+	mockDownloadStream.EXPECT().Recv().
+		Return(&gophkeeperv1.DownloadBlobResponse{
+			Body: &gophkeeperv1.DownloadBlobResponse_Header{
+				Header: &gophkeeperv1.DownloadBlobHeader{
+					Blob: &gophkeeperv1.BlobInfo{BlobId: "blob-456"},
+				},
+			},
+		}, nil).
+		Times(1)
+
+	// Chunk с недостаточными данными (меньше nonce)
+	mockDownloadStream.EXPECT().Recv().
+		Return(&gophkeeperv1.DownloadBlobResponse{
+			Body: &gophkeeperv1.DownloadBlobResponse_Chunk{
+				Chunk: &gophkeeperv1.DownloadBlobChunk{
+					Data: []byte("too-short"),
+				},
+			},
+		}, nil).
+		Times(1)
+
+	// EOF
+	mockDownloadStream.EXPECT().Recv().
+		Return(nil, io.EOF).
+		Times(1)
+
+	// Act
+	data, err := app.DownloadFile(t.Context(), "blob-456")
+
+	// Assert
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "too short")
+	assert.Nil(t, data)
+}
+
+func TestDownloadFile_DecryptionError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockStorage := mocks.NewMockLocalStorage(ctrl)
+	mockBlobClient := mocks.NewMockBlobServiceClient(ctrl)
+	mockClient := mocks.NewMockClient(ctrl)
+
+	dek := make([]byte, 32)
+	_, _ = rand.Read(dek)
+
+	app := &App{
+		Client:       mockClient,
+		DEK:          dek,
+		AuthState:    &model.AuthState{},
+		SyncState:    &model.SyncState{},
+		LocalStorage: mockStorage,
+	}
+
+	mockClient.EXPECT().BlobClient().Return(mockBlobClient).AnyTimes()
+
+	mockDownloadStream := mocks.NewMockBlobService_DownloadBlobClient(ctrl)
+	mockBlobClient.EXPECT().DownloadBlob(gomock.Any(), gomock.Any()).
+		Return(mockDownloadStream, nil).
+		Times(1)
+
+	// Header
+	mockDownloadStream.EXPECT().Recv().
+		Return(&gophkeeperv1.DownloadBlobResponse{
+			Body: &gophkeeperv1.DownloadBlobResponse_Header{
+				Header: &gophkeeperv1.DownloadBlobHeader{
+					Blob: &gophkeeperv1.BlobInfo{BlobId: "blob-456"},
+				},
+			},
+		}, nil).
+		Times(1)
+
+	// Chunk с невалидными зашифрованными данными
+	invalidNonce := make([]byte, 24)
+	invalidCiphertext := []byte("invalid-ciphertext-data")
+	invalidBlobData := append(invalidNonce, invalidCiphertext...)
+
+	mockDownloadStream.EXPECT().Recv().
+		Return(&gophkeeperv1.DownloadBlobResponse{
+			Body: &gophkeeperv1.DownloadBlobResponse_Chunk{
+				Chunk: &gophkeeperv1.DownloadBlobChunk{
+					Data: invalidBlobData,
+				},
+			},
+		}, nil).
+		Times(1)
+
+	// EOF
+	mockDownloadStream.EXPECT().Recv().
+		Return(nil, io.EOF).
+		Times(1)
+
+	// Act
+	data, err := app.DownloadFile(t.Context(), "blob-456")
+
+	// Assert
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "message authentication failed")
+	assert.Nil(t, data)
+}
+
+func TestUploadDownloadFile_RoundTrip(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockStorage := mocks.NewMockLocalStorage(ctrl)
+	mockBlobClient := mocks.NewMockBlobServiceClient(ctrl)
+	mockClient := mocks.NewMockClient(ctrl)
+
+	// Создаём временный файл
+	tmpFile, err := os.CreateTemp("", "test-roundtrip-*.txt")
+	assert.NoError(t, err)
+	defer os.Remove(tmpFile.Name())
+
+	originalData := []byte("round trip test data for upload and download")
+	_, err = tmpFile.Write(originalData)
+	assert.NoError(t, err)
+	tmpFile.Close()
+
+	dek := make([]byte, 32)
+	_, _ = rand.Read(dek)
+
+	app := &App{
+		Client:       mockClient,
+		DEK:          dek,
+		AuthState:    &model.AuthState{},
+		SyncState:    &model.SyncState{},
+		LocalStorage: mockStorage,
+	}
+
+	mockClient.EXPECT().BlobClient().Return(mockBlobClient).AnyTimes()
+
+	// === UPLOAD ===
+	nonce, encryptedData, err := crypto.Encrypt(dek, originalData)
+	assert.NoError(t, err)
+	blobData := append(nonce, encryptedData...)
+
+	mockBlobClient.EXPECT().StartBlobUpload(gomock.Any(), gomock.Any()).
+		Return(&gophkeeperv1.StartBlobUploadResponse{
+			UploadSessionId: "session-123",
+			BlobId:          "blob-456",
+			MaxChunkSize:    1024 * 1024,
+		}, nil).
+		Times(1)
+
+	mockUploadStream := mocks.NewMockBlobService_UploadBlobClient(ctrl)
+	mockBlobClient.EXPECT().UploadBlob(gomock.Any()).
+		Return(mockUploadStream, nil).
+		Times(1)
+
+	mockUploadStream.EXPECT().Send(gomock.Any()).Return(nil).Times(1) // header
+	mockUploadStream.EXPECT().Send(gomock.Any()).Return(nil).Times(1) // chunk
+	mockUploadStream.EXPECT().CloseAndRecv().
+		Return(&gophkeeperv1.UploadBlobResponse{
+			Status: gophkeeperv1.BlobStatus_BLOB_STATUS_COMMITTED,
+		}, nil).
+		Times(1)
+
+	// Act - Upload
+	blobID, err := app.UploadFile(t.Context(), tmpFile.Name(), "")
+	assert.NoError(t, err)
+	assert.Equal(t, "blob-456", blobID)
+
+	// === DOWNLOAD ===
+	mockDownloadStream := mocks.NewMockBlobService_DownloadBlobClient(ctrl)
+	mockBlobClient.EXPECT().DownloadBlob(gomock.Any(), gomock.Any()).
+		Return(mockDownloadStream, nil).
+		Times(1)
+
+	mockDownloadStream.EXPECT().Recv().
+		Return(&gophkeeperv1.DownloadBlobResponse{
+			Body: &gophkeeperv1.DownloadBlobResponse_Header{
+				Header: &gophkeeperv1.DownloadBlobHeader{
+					Blob: &gophkeeperv1.BlobInfo{BlobId: "blob-456"},
+				},
+			},
+		}, nil).
+		Times(1)
+
+	mockDownloadStream.EXPECT().Recv().
+		Return(&gophkeeperv1.DownloadBlobResponse{
+			Body: &gophkeeperv1.DownloadBlobResponse_Chunk{
+				Chunk: &gophkeeperv1.DownloadBlobChunk{
+					Data: blobData,
+				},
+			},
+		}, nil).
+		Times(1)
+
+	mockDownloadStream.EXPECT().Recv().
+		Return(nil, io.EOF).
+		Times(1)
+
+	// Act - Download
+	downloadedData, err := app.DownloadFile(t.Context(), blobID)
+
+	// Assert
+	assert.NoError(t, err)
+	assert.Equal(t, originalData, downloadedData)
+}
+
+func TestUploadFile_LargeFile(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockStorage := mocks.NewMockLocalStorage(ctrl)
+	mockBlobClient := mocks.NewMockBlobServiceClient(ctrl)
+	mockClient := mocks.NewMockClient(ctrl)
+
+	// Создаём временный файл с большими данными
+	tmpFile, err := os.CreateTemp("", "test-large-*.txt")
+	assert.NoError(t, err)
+	defer os.Remove(tmpFile.Name())
+
+	// 2 MB данных (больше чем maxChunkSize 1 MB)
+	largeData := make([]byte, 2*1024*1024)
+	for i := range largeData {
+		largeData[i] = byte(i % 256)
+	}
+	_, err = tmpFile.Write(largeData)
+	assert.NoError(t, err)
+	tmpFile.Close()
+
+	dek := make([]byte, 32)
+	_, _ = rand.Read(dek)
+
+	app := &App{
+		Client:       mockClient,
+		DEK:          dek,
+		AuthState:    &model.AuthState{},
+		SyncState:    &model.SyncState{},
+		LocalStorage: mockStorage,
+	}
+
+	mockClient.EXPECT().BlobClient().Return(mockBlobClient).AnyTimes()
+
+	mockBlobClient.EXPECT().StartBlobUpload(gomock.Any(), gomock.Any()).
+		Return(&gophkeeperv1.StartBlobUploadResponse{
+			UploadSessionId: "session-123",
+			BlobId:          "blob-456",
+			MaxChunkSize:    1024 * 1024, // 1 MB chunks
+		}, nil).
+		Times(1)
+
+	mockUploadStream := mocks.NewMockBlobService_UploadBlobClient(ctrl)
+	mockBlobClient.EXPECT().UploadBlob(gomock.Any()).
+		Return(mockUploadStream, nil).
+		Times(1)
+
+	mockUploadStream.EXPECT().Send(gomock.Any()).Return(nil).Times(1) // header
+	// Ожидаем 3 чанка (nonce + 2 MB encrypted data)
+	mockUploadStream.EXPECT().Send(gomock.Any()).Return(nil).Times(3)
+	mockUploadStream.EXPECT().CloseAndRecv().
+		Return(&gophkeeperv1.UploadBlobResponse{
+			Status: gophkeeperv1.BlobStatus_BLOB_STATUS_COMMITTED,
+		}, nil).
+		Times(1)
+
+	// Act
+	blobID, err := app.UploadFile(t.Context(), tmpFile.Name(), "")
+
+	// Assert
+	assert.NoError(t, err)
+	assert.Equal(t, "blob-456", blobID)
+}
+
+// BenchmarkUploadFile измеряет производительность загрузки файла
+func BenchmarkUploadFile(b *testing.B) {
+	ctrl := gomock.NewController(b)
+	defer ctrl.Finish()
+
+	mockStorage := mocks.NewMockLocalStorage(ctrl)
+	mockBlobClient := mocks.NewMockBlobServiceClient(ctrl)
+	mockClient := mocks.NewMockClient(ctrl)
+
+	tmpFile, err := os.CreateTemp("", "benchmark-*.txt")
+	assert.NoError(b, err)
+	defer os.Remove(tmpFile.Name())
+
+	testData := make([]byte, 1024) // 1 KB
+	for i := range testData {
+		testData[i] = byte(i % 256)
+	}
+	_, err = tmpFile.Write(testData)
+	assert.NoError(b, err)
+	tmpFile.Close()
+
+	dek := make([]byte, 32)
+	_, _ = rand.Read(dek)
+
+	app := &App{
+		Client:       mockClient,
+		DEK:          dek,
+		LocalStorage: mockStorage,
+	}
+
+	mockClient.EXPECT().BlobClient().Return(mockBlobClient).AnyTimes()
+	mockBlobClient.EXPECT().StartBlobUpload(gomock.Any(), gomock.Any()).
+		Return(&gophkeeperv1.StartBlobUploadResponse{
+			UploadSessionId: "session-123",
+			BlobId:          "blob-456",
+			MaxChunkSize:    1024 * 1024,
+		}, nil).
+		AnyTimes()
+
+	mockUploadStream := mocks.NewMockBlobService_UploadBlobClient(ctrl)
+	mockBlobClient.EXPECT().UploadBlob(gomock.Any()).
+		Return(mockUploadStream, nil).
+		AnyTimes()
+
+	mockUploadStream.EXPECT().Send(gomock.Any()).Return(nil).AnyTimes()
+	mockUploadStream.EXPECT().CloseAndRecv().
+		Return(&gophkeeperv1.UploadBlobResponse{
+			Status: gophkeeperv1.BlobStatus_BLOB_STATUS_COMMITTED,
+		}, nil).
+		AnyTimes()
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, err := app.UploadFile(b.Context(), tmpFile.Name(), "")
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+// BenchmarkDownloadFile измеряет производительность выгрузки файла
+func BenchmarkDownloadFile(b *testing.B) {
+	ctrl := gomock.NewController(b)
+	defer ctrl.Finish()
+
+	mockStorage := mocks.NewMockLocalStorage(ctrl)
+	mockBlobClient := mocks.NewMockBlobServiceClient(ctrl)
+	mockClient := mocks.NewMockClient(ctrl)
+
+	dek := make([]byte, 32)
+	_, _ = rand.Read(dek)
+
+	testData := make([]byte, 1024)
+	for i := range testData {
+		testData[i] = byte(i % 256)
+	}
+	nonce, encryptedData, _ := crypto.Encrypt(dek, testData)
+	blobData := append(nonce, encryptedData...)
+
+	app := &App{
+		Client:       mockClient,
+		DEK:          dek,
+		LocalStorage: mockStorage,
+	}
+
+	mockClient.EXPECT().BlobClient().Return(mockBlobClient).AnyTimes()
+
+	mockDownloadStream := mocks.NewMockBlobService_DownloadBlobClient(ctrl)
+	mockBlobClient.EXPECT().DownloadBlob(gomock.Any(), gomock.Any()).
+		Return(mockDownloadStream, nil).
+		AnyTimes()
+
+	mockDownloadStream.EXPECT().Recv().
+		Return(&gophkeeperv1.DownloadBlobResponse{
+			Body: &gophkeeperv1.DownloadBlobResponse_Header{
+				Header: &gophkeeperv1.DownloadBlobHeader{
+					Blob: &gophkeeperv1.BlobInfo{BlobId: "blob-456"},
+				},
+			},
+		}, nil).
+		AnyTimes()
+
+	mockDownloadStream.EXPECT().Recv().
+		Return(&gophkeeperv1.DownloadBlobResponse{
+			Body: &gophkeeperv1.DownloadBlobResponse_Chunk{
+				Chunk: &gophkeeperv1.DownloadBlobChunk{
+					Data: blobData,
+				},
+			},
+		}, nil).
+		AnyTimes()
+
+	mockDownloadStream.EXPECT().Recv().
+		Return(nil, io.EOF).
+		AnyTimes()
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, err := app.DownloadFile(b.Context(), "blob-456")
 		if err != nil {
 			b.Fatal(err)
 		}

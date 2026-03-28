@@ -16,8 +16,9 @@ import (
 // Загружает состояние аутентификации, создаёт приложение и выполняет синхронизацию.
 // Требует предварительной аутентификации пользователя.
 var syncCmd = &cobra.Command{
-	Use:   "sync",
-	Short: "Sync with server",
+	Use:     "sync",
+	Short:   "Sync with server",
+	GroupID: "sync",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		dataDirPath, err := cmd.Flags().GetString("data-dir")
 		if err != nil {
@@ -63,7 +64,7 @@ var syncCmd = &cobra.Command{
 			return err
 		}
 
-		if err := app.Sync(); err != nil {
+		if err := app.Sync(cmd.Context()); err != nil {
 			return err
 		}
 

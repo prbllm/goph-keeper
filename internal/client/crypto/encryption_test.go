@@ -1,6 +1,7 @@
 package crypto
 
 import (
+	"encoding/hex"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -300,6 +301,34 @@ func TestDecrypt_NilInputs(t *testing.T) {
 	decrypted, err = Decrypt(nil, make([]byte, 24), []byte("cipher"))
 	assert.Error(t, err)
 	assert.Nil(t, decrypted)
+}
+
+func TestSHA256(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   []byte
+		wantHex string
+	}{
+		{
+			name:    "Empty string",
+			input:   []byte(""),
+			wantHex: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+		},
+		{
+			name:    "Hello World",
+			input:   []byte("hello world"),
+			wantHex: "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := SHA256(tt.input)
+
+			want, _ := hex.DecodeString(tt.wantHex)
+			assert.Equal(t, want, got)
+		})
+	}
 }
 
 // BenchmarkEncrypt измеряет производительность шифрования

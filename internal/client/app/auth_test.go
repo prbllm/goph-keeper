@@ -57,7 +57,7 @@ func TestRegister_Success(t *testing.T) {
 	}
 
 	// Act
-	err := app.Register("testuser", "password123")
+	err := app.Register(t.Context(), "testuser", "password123")
 
 	// Assert
 	assert.NoError(t, err)
@@ -88,7 +88,7 @@ func TestRegister_ServerError(t *testing.T) {
 	}
 
 	// Act
-	err := app.Register("testuser", "password123")
+	err := app.Register(t.Context(), "testuser", "password123")
 
 	// Assert
 	assert.Error(t, err)
@@ -120,7 +120,7 @@ func TestRegister_InvalidResponse(t *testing.T) {
 	}
 
 	// Act
-	err := app.Register("testuser", "password123")
+	err := app.Register(t.Context(), "testuser", "password123")
 
 	// Assert
 	assert.Error(t, err)
@@ -159,7 +159,7 @@ func TestRegister_SaveError(t *testing.T) {
 	}
 
 	// Act
-	err := app.Register("testuser", "password123")
+	err := app.Register(t.Context(), "testuser", "password123")
 
 	// Assert
 	assert.Error(t, err)
@@ -224,7 +224,7 @@ func TestLogin_Success(t *testing.T) {
 	}
 
 	// Act
-	err = app.Login("testuser", password)
+	err = app.Login(t.Context(), "testuser", password)
 
 	// Assert
 	assert.NoError(t, err)
@@ -257,7 +257,7 @@ func TestLogin_ServerError(t *testing.T) {
 	}
 
 	// Act
-	err := app.Login("testuser", "password123")
+	err := app.Login(t.Context(), "testuser", "password123")
 
 	// Assert
 	assert.Error(t, err)
@@ -299,7 +299,7 @@ func TestLogin_InvalidPassword(t *testing.T) {
 	}
 
 	// Act
-	err := app.Login("testuser", "wrongpassword")
+	err := app.Login(t.Context(), "testuser", "wrongpassword")
 
 	// Assert
 	assert.Error(t, err)
@@ -345,7 +345,7 @@ func TestLogin_InvalidResponse(t *testing.T) {
 	}
 
 	// Act
-	err = app.Login("testuser", "password123")
+	err = app.Login(t.Context(), "testuser", "password123")
 
 	// Assert
 	assert.Error(t, err)
@@ -396,7 +396,7 @@ func TestLogin_SaveError(t *testing.T) {
 	}
 
 	// Act
-	err = app.Login("testuser", "password123")
+	err = app.Login(t.Context(), "testuser", "password123")
 
 	// Assert
 	assert.Error(t, err)
@@ -490,7 +490,7 @@ func TestRegister_TableDriven(t *testing.T) {
 				LocalStorage: mockStorage,
 			}
 
-			err := app.Register(tt.login, tt.password)
+			err := app.Register(t.Context(), tt.login, tt.password)
 
 			if tt.wantErr {
 				assert.Error(t, err)
@@ -530,7 +530,7 @@ func BenchmarkRegister(b *testing.B) {
 
 	for i := 0; b.Loop(); i++ {
 		suffix := strconv.Itoa(i)
-		err := app.Register("user"+suffix, "password"+suffix)
+		err := app.Register(b.Context(), "user"+suffix, "password"+suffix)
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -574,7 +574,7 @@ func BenchmarkLogin(b *testing.B) {
 	}
 
 	for i := 0; b.Loop(); i++ {
-		err := app.Login("user", password)
+		err := app.Login(b.Context(), "user", password)
 		if err != nil {
 			b.Fatal(err)
 		}

@@ -16,9 +16,10 @@ import (
 // Принимает два аргумента: логин и пароль.
 // Создаёт подключение к серверу, инициализирует приложение и регистрирует пользователя.
 var registerCmd = &cobra.Command{
-	Use:   "register [login] [password]",
-	Short: "Register user",
-	Args:  cobra.ExactArgs(2),
+	Use:     "register [login] [password]",
+	Short:   "Register user",
+	GroupID: "auth",
+	Args:    cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		dataDirPath, err := cmd.Flags().GetString("data-dir")
 		if err != nil {
@@ -56,7 +57,7 @@ var registerCmd = &cobra.Command{
 			return err
 		}
 
-		if err := app.Register(args[0], args[1]); err != nil {
+		if err := app.Register(cmd.Context(), args[0], args[1]); err != nil {
 			return err
 		}
 
@@ -70,9 +71,10 @@ var registerCmd = &cobra.Command{
 // Принимает два аргумента: логин и пароль.
 // Создаёт подключение к серверу, инициализирует приложение и выполняет вход.
 var loginCmd = &cobra.Command{
-	Use:   "login [login] [password]",
-	Short: "Login user",
-	Args:  cobra.ExactArgs(2),
+	Use:     "login [login] [password]",
+	Short:   "Login user",
+	GroupID: "auth",
+	Args:    cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		dataDirPath, err := cmd.Flags().GetString("data-dir")
 		if err != nil {
@@ -110,7 +112,7 @@ var loginCmd = &cobra.Command{
 			return err
 		}
 
-		if err := app.Login(args[0], args[1]); err != nil {
+		if err := app.Login(cmd.Context(), args[0], args[1]); err != nil {
 			return err
 		}
 
