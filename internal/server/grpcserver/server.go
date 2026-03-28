@@ -33,6 +33,7 @@ type Deps struct {
 	Logger       *zap.Logger
 	Cfg          *config.Config
 	AuthService  AuthService
+	DeviceAdmin  auth.DeviceAdmin
 	VaultEngine  vault.Engine
 	PostgresPool postgres.Pool
 	Now          func() time.Time
@@ -75,6 +76,9 @@ func New(deps *Deps, tlsCreds credentials.TransportCredentials) (*grpc.Server, e
 	}
 	if deps.AuthService == nil {
 		return nil, fmt.Errorf("grpcserver: deps.AuthService is nil")
+	}
+	if deps.DeviceAdmin == nil {
+		return nil, fmt.Errorf("grpcserver: deps.DeviceAdmin is nil")
 	}
 	if deps.VaultEngine == nil {
 		return nil, fmt.Errorf("grpcserver: deps.VaultEngine is nil")
@@ -122,6 +126,11 @@ func New(deps *Deps, tlsCreds credentials.TransportCredentials) (*grpc.Server, e
 	gophkeeperv1.RegisterHealthServiceServer(s, healthService{})
 
 	gophkeeperv1.RegisterAuthServiceServer(s, authHandler{svc: deps.AuthService})
+
+	gophkeeperv1.RegisterDeviceServiceServer(s, deviceHandler{
+		logger:  deps.Logger,
+		devices: deps.DeviceAdmin,
+	})
 
 	deps.Logger.Debug("gRPC: registering vault service")
 	gophkeeperv1.RegisterVaultServiceServer(s, vaultHandler{

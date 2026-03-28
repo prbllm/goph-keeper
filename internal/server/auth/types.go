@@ -39,6 +39,24 @@ type Session struct {
 	ExpiresAt time.Time
 }
 
+// DeviceRecord is a persisted device row for listing and admin APIs.
+type DeviceRecord struct {
+	DeviceID      string
+	UserID        string
+	DeviceName    string
+	Platform      int16
+	ClientVersion string
+	CreatedAt     time.Time
+	LastSeenAt    time.Time
+	RevokedAt     *time.Time
+}
+
+// DeviceAdmin lists and revokes devices for an authenticated user.
+type DeviceAdmin interface {
+	ListDevicesByUser(ctx context.Context, userID string) ([]DeviceRecord, error)
+	RevokeDeviceForUser(ctx context.Context, userID, deviceID string) error
+}
+
 type UserRepository interface {
 	GetByLogin(ctx context.Context, login string) (*User, error)
 }

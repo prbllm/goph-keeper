@@ -46,8 +46,17 @@ func (stubAuthService) Logout(context.Context, string) error { return nil }
 func (stubAuthService) Limits() *gophkeeperv1.Limits         { return &gophkeeperv1.Limits{} }
 
 var (
-	_ AuthService = stubAuthService{}
+	_ AuthService      = stubAuthService{}
+	_ auth.DeviceAdmin = stubDeviceAdmin{}
 )
+
+type stubDeviceAdmin struct{}
+
+func (stubDeviceAdmin) ListDevicesByUser(context.Context, string) ([]auth.DeviceRecord, error) {
+	return nil, nil
+}
+
+func (stubDeviceAdmin) RevokeDeviceForUser(context.Context, string, string) error { return nil }
 
 type stubVaultEngine struct{}
 
@@ -156,6 +165,7 @@ func TestNew_nilTLSCreds(t *testing.T) {
 		Logger:       zap.NewNop(),
 		Cfg:          &config.Config{},
 		AuthService:  stubAuthService{},
+		DeviceAdmin:  stubDeviceAdmin{},
 		VaultEngine:  stubVaultEngine{},
 		PostgresPool: tlsTestPool{},
 		Now:          time.Now,
@@ -180,6 +190,7 @@ func TestNew_nilCfg(t *testing.T) {
 		Logger:      zap.NewNop(),
 		Cfg:         nil,
 		AuthService: stubAuthService{},
+		DeviceAdmin: stubDeviceAdmin{},
 		VaultEngine: stubVaultEngine{},
 		BlobRepo:    stubBlobRepo{},
 		BlobStorage: stubBlobStorage{},
@@ -202,6 +213,7 @@ func TestNew_nilLogger(t *testing.T) {
 		Logger:      nil,
 		Cfg:         &config.Config{},
 		AuthService: stubAuthService{},
+		DeviceAdmin: stubDeviceAdmin{},
 		VaultEngine: stubVaultEngine{},
 		BlobRepo:    stubBlobRepo{},
 		BlobStorage: stubBlobStorage{},
@@ -224,6 +236,7 @@ func TestNew_nilAuthService(t *testing.T) {
 		Logger:      zap.NewNop(),
 		Cfg:         &config.Config{JWTSecret: strings.Repeat("a", config.MinJWTSecretLen)},
 		AuthService: nil,
+		DeviceAdmin: stubDeviceAdmin{},
 		VaultEngine: stubVaultEngine{},
 		BlobRepo:    stubBlobRepo{},
 		BlobStorage: stubBlobStorage{},
@@ -232,6 +245,31 @@ func TestNew_nilAuthService(t *testing.T) {
 	_, err = New(deps, creds)
 	if err == nil {
 		t.Fatal("expected error when deps.AuthService is nil")
+	}
+}
+
+func TestNew_nilDeviceAdmin(t *testing.T) {
+	dir := t.TempDir()
+	_, cert, key := writeTestServerTLSChain(t, dir)
+	creds, err := credentials.NewServerTLSFromFile(cert, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	deps := &Deps{
+		Logger:       zap.NewNop(),
+		Cfg:          &config.Config{JWTSecret: strings.Repeat("a", config.MinJWTSecretLen)},
+		AuthService:  stubAuthService{},
+		DeviceAdmin:  nil,
+		VaultEngine:  stubVaultEngine{},
+		PostgresPool: tlsTestPool{},
+		Now:          time.Now,
+		BlobRepo:     stubBlobRepo{},
+		BlobStorage:  stubBlobStorage{},
+		UploadStore:  stubUploadStore{},
+	}
+	_, err = New(deps, creds)
+	if err == nil {
+		t.Fatal("expected error when deps.DeviceAdmin is nil")
 	}
 }
 
@@ -246,6 +284,7 @@ func TestNew_nilVaultEngine(t *testing.T) {
 		Logger:      zap.NewNop(),
 		Cfg:         &config.Config{JWTSecret: strings.Repeat("a", config.MinJWTSecretLen)},
 		AuthService: &auth.Service{},
+		DeviceAdmin: stubDeviceAdmin{},
 		VaultEngine: nil,
 		BlobRepo:    stubBlobRepo{},
 		BlobStorage: stubBlobStorage{},
@@ -268,6 +307,7 @@ func TestNew_nilBlobRepo(t *testing.T) {
 		Logger:       zap.NewNop(),
 		Cfg:          &config.Config{JWTSecret: strings.Repeat("a", config.MinJWTSecretLen)},
 		AuthService:  stubAuthService{},
+		DeviceAdmin:  stubDeviceAdmin{},
 		VaultEngine:  stubVaultEngine{},
 		PostgresPool: tlsTestPool{},
 		Now:          time.Now,
@@ -292,6 +332,7 @@ func TestNew_nilBlobStorage(t *testing.T) {
 		Logger:       zap.NewNop(),
 		Cfg:          &config.Config{JWTSecret: strings.Repeat("a", config.MinJWTSecretLen)},
 		AuthService:  stubAuthService{},
+		DeviceAdmin:  stubDeviceAdmin{},
 		VaultEngine:  stubVaultEngine{},
 		PostgresPool: tlsTestPool{},
 		Now:          time.Now,
@@ -316,6 +357,7 @@ func TestNew_nilUploadStore(t *testing.T) {
 		Logger:       zap.NewNop(),
 		Cfg:          &config.Config{JWTSecret: strings.Repeat("a", config.MinJWTSecretLen)},
 		AuthService:  stubAuthService{},
+		DeviceAdmin:  stubDeviceAdmin{},
 		VaultEngine:  stubVaultEngine{},
 		PostgresPool: tlsTestPool{},
 		Now:          time.Now,
@@ -340,6 +382,7 @@ func TestNew_success(t *testing.T) {
 		Logger:       zap.NewNop(),
 		Cfg:          &config.Config{JWTSecret: strings.Repeat("a", config.MinJWTSecretLen)},
 		AuthService:  stubAuthService{},
+		DeviceAdmin:  stubDeviceAdmin{},
 		VaultEngine:  stubVaultEngine{},
 		PostgresPool: tlsTestPool{},
 		Now:          time.Now,

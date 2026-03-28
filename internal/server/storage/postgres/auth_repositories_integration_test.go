@@ -322,3 +322,171 @@ func TestAuthService_registerLoginRefreshLogout(t *testing.T) {
 		t.Fatalf("Refresh after logout: %v, want ErrUnauthorized", err)
 	}
 }
+
+func TestAuthRepositories_ListDevicesByUser(t *testing.T) {
+	repos, _, cleanup := openAuthIntegration(t)
+	defer cleanup()
+	ctx := context.Background()
+
+	login := "listdev-" + uuid.NewString()
+	user := testAuthUser(login)
+	devA := "dev-a-" + uuid.NewString()
+	devB := "dev-b-" + uuid.NewString()
+	rt, err := auth.NewRefreshToken()
+	if err != nil {
+		t.Fatal(err)
+	}
+	sess := &auth.Session{
+		TokenID:   uuid.NewString(),
+		UserID:    user.UserID,
+		DeviceID:  devA,
+		TokenHash: auth.HashToken(rt),
+		ExpiresAt: time.Now().Add(24 * time.Hour),
+	}
+	if err := repos.RegisterWithSession(ctx, user, &auth.Device{
+		DeviceID: devA, UserID: user.UserID, DeviceName: "a", Platform: 1, ClientVersion: "1",
+	}, sess); err != nil {
+		t.Fatalf("register: %v", err)
+	}
+	if err := repos.LoginWithDeviceAndSession(ctx, &auth.Device{
+		DeviceID: devB, UserID: user.UserID, DeviceName: "b", Platform: 2, ClientVersion: "1",
+	}, &auth.Session{
+		TokenID:   uuid.NewString(),
+		UserID:    user.UserID,
+		DeviceID:  devB,
+		TokenHash: auth.HashToken(mustRefreshToken(t)),
+		ExpiresAt: time.Now().Add(24 * time.Hour),
+	}); err != nil {
+		t.Fatalf("login device b: %v", err)
+	}
+
+	list, err := repos.ListDevicesByUser(ctx, user.UserID)
+	if err != nil {
+		t.Fatalf("ListDevicesByUser: %v", err)
+	}
+	if len(list) != 2 {
+		t.Fatalf("want 2 devices, got %d", len(list))
+	}
+	byID := make(map[string]auth.DeviceRecord, len(list))
+	for _, r := range list {
+		byID[r.DeviceID] = r
+	}
+	a, okA := byID[devA]
+	b, okB := byID[devB]
+	if !okA || !okB {
+		t.Fatalf("missing devices: %#v", list)
+	}
+	if a.DeviceName != "a" || a.Platform != 1 || a.RevokedAt != nil {
+		t.Fatalf("device a: %#v", a)
+	}
+	if b.DeviceName != "b" || b.Platform != 2 || b.RevokedAt != nil {
+		t.Fatalf("device b: %#v", b)
+	}
+}
+
+func mustRefreshToken(t *testing.T) string {
+	t.Helper()
+	s, err := auth.NewRefreshToken()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return s
+}
+
+func TestAuthRepositories_RevokeDeviceForUser_invalidatesRefreshAndBlocksRotate(t *testing.T) {
+	repos, db, cleanup := openAuthIntegration(t)
+	defer cleanup()
+	ctx := context.Background()
+
+	login := "revdev-" + uuid.NewString()
+	user := testAuthUser(login)
+	devID := "dev-rev-" + uuid.NewString()
+	oldPlain, err := auth.NewRefreshToken()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := repos.RegisterWithSession(ctx, user, &auth.Device{
+		DeviceID: devID, UserID: user.UserID, DeviceName: "x", Platform: 1, ClientVersion: "1",
+	}, &auth.Session{
+		TokenID:   uuid.NewString(),
+		UserID:    user.UserID,
+		DeviceID:  devID,
+		TokenHash: auth.HashToken(oldPlain),
+		ExpiresAt: time.Now().Add(24 * time.Hour),
+	}); err != nil {
+		t.Fatalf("register: %v", err)
+	}
+
+	newPlain, err := auth.NewRefreshToken()
+	if err != nil {
+		t.Fatal(err)
+	}
+	newSess := &auth.Session{
+		TokenID:   uuid.NewString(),
+		TokenHash: auth.HashToken(newPlain),
+		ExpiresAt: time.Now().Add(24 * time.Hour),
+		DeviceID:  devID,
+	}
+	srepo := repos.SessionRepository()
+	if err := srepo.RotateRefresh(ctx, auth.HashToken(oldPlain), devID, time.Now(), newSess); err != nil {
+		t.Fatalf("RotateRefresh before revoke: %v", err)
+	}
+
+	if err := repos.RevokeDeviceForUser(ctx, user.UserID, devID); err != nil {
+		t.Fatalf("RevokeDeviceForUser: %v", err)
+	}
+
+	var activeTokens int
+	if err := db.QueryRowContext(ctx, `
+SELECT COUNT(*) FROM refresh_tokens
+WHERE device_id = $1 AND user_id = $2 AND revoked_at IS NULL`, devID, user.UserID).Scan(&activeTokens); err != nil {
+		t.Fatal(err)
+	}
+	if activeTokens != 0 {
+		t.Fatalf("want 0 active refresh tokens, got %d", activeTokens)
+	}
+
+	anotherRotate, err := auth.NewRefreshToken()
+	if err != nil {
+		t.Fatal(err)
+	}
+	nextSess := &auth.Session{
+		TokenID:   uuid.NewString(),
+		TokenHash: auth.HashToken(anotherRotate),
+		ExpiresAt: time.Now().Add(24 * time.Hour),
+		DeviceID:  devID,
+	}
+	if err := srepo.RotateRefresh(ctx, auth.HashToken(newPlain), devID, time.Now(), nextSess); !errors.Is(err, auth.ErrUnauthorized) {
+		t.Fatalf("RotateRefresh after revoke: %v, want ErrUnauthorized", err)
+	}
+
+	if err := repos.RevokeDeviceForUser(ctx, user.UserID, devID); err != nil {
+		t.Fatalf("second revoke (idempotent): %v", err)
+	}
+}
+
+func TestAuthRepositories_RevokeDeviceForUser_unknownDevice(t *testing.T) {
+	repos, _, cleanup := openAuthIntegration(t)
+	defer cleanup()
+	ctx := context.Background()
+
+	login := "revunk-" + uuid.NewString()
+	user := testAuthUser(login)
+	devID := "dev-" + uuid.NewString()
+	if err := repos.RegisterWithSession(ctx, user, &auth.Device{
+		DeviceID: devID, UserID: user.UserID, DeviceName: "x", Platform: 1, ClientVersion: "1",
+	}, &auth.Session{
+		TokenID:   uuid.NewString(),
+		UserID:    user.UserID,
+		DeviceID:  devID,
+		TokenHash: auth.HashToken(mustRefreshToken(t)),
+		ExpiresAt: time.Now().Add(time.Hour),
+	}); err != nil {
+		t.Fatalf("register: %v", err)
+	}
+
+	err := repos.RevokeDeviceForUser(ctx, user.UserID, "no-such-device")
+	if !errors.Is(err, auth.ErrDeviceNotFound) {
+		t.Fatalf("RevokeDeviceForUser: %v, want ErrDeviceNotFound", err)
+	}
+}

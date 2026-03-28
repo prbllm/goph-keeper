@@ -90,6 +90,7 @@ func Run() error {
 		Logger:       logger,
 		Cfg:          cfg,
 		AuthService:  authService,
+		DeviceAdmin:  authRepos,
 		VaultEngine:  vaultEngine,
 		PostgresPool: db,
 		Now:          now,

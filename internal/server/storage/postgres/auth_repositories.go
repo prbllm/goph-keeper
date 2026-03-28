@@ -158,9 +158,14 @@ func (r *AuthRepositories) RotateRefresh(ctx context.Context, oldHash []byte, de
 	defer func() { _ = tx.Rollback() }()
 
 	const sel = `
-SELECT user_id, device_id
-FROM refresh_tokens
-WHERE token_hash = $1 AND device_id = $2 AND revoked_at IS NULL AND expires_at > $3
+SELECT rt.user_id, rt.device_id
+FROM refresh_tokens rt
+INNER JOIN devices d ON d.device_id = rt.device_id AND d.user_id = rt.user_id
+WHERE rt.token_hash = $1
+  AND rt.device_id = $2
+  AND rt.revoked_at IS NULL
+  AND rt.expires_at > $3
+  AND d.revoked_at IS NULL
 FOR UPDATE`
 	var userID, devID string
 	err = tx.QueryRowContext(ctx, sel, oldHash, deviceID, now).Scan(&userID, &devID)
@@ -219,3 +224,78 @@ func (a *sessionRepoAdapter) RotateRefresh(ctx context.Context, oldTokenHash []b
 func (r *AuthRepositories) SessionRepository() auth.SessionRepository {
 	return &sessionRepoAdapter{parent: r}
 }
+
+// ListDevicesByUser returns all devices registered for the user, ordered by created_at.
+func (r *AuthRepositories) ListDevicesByUser(ctx context.Context, userID string) ([]auth.DeviceRecord, error) {
+	const query = `
+SELECT device_id, user_id, device_name, platform, client_version, created_at, last_seen_at, revoked_at
+FROM devices
+WHERE user_id = $1
+ORDER BY created_at ASC`
+	rows, err := r.db.QueryContext(ctx, query, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+
+	var out []auth.DeviceRecord
+	for rows.Next() {
+		var rec auth.DeviceRecord
+		var revoked sql.NullTime
+		if err := rows.Scan(
+			&rec.DeviceID, &rec.UserID, &rec.DeviceName, &rec.Platform, &rec.ClientVersion,
+			&rec.CreatedAt, &rec.LastSeenAt, &revoked,
+		); err != nil {
+			return nil, err
+		}
+		if revoked.Valid {
+			t := revoked.Time
+			rec.RevokedAt = &t
+		}
+		out = append(out, rec)
+	}
+	return out, rows.Err()
+}
+
+// RevokeDeviceForUser marks the device and all its refresh tokens revoked for that user.
+// Idempotent if the device is already revoked.
+// Returns auth.ErrDeviceNotFound when no device row exists for the user and device id.
+func (r *AuthRepositories) RevokeDeviceForUser(ctx context.Context, userID, deviceID string) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	res, err := tx.ExecContext(ctx, `
+UPDATE devices SET revoked_at = NOW()
+WHERE user_id = $1 AND device_id = $2 AND revoked_at IS NULL`,
+		userID, deviceID)
+	if err != nil {
+		return err
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		var dummy int
+		err = tx.QueryRowContext(ctx, `SELECT 1 FROM devices WHERE user_id = $1 AND device_id = $2`, userID, deviceID).Scan(&dummy)
+		if errors.Is(err, sql.ErrNoRows) {
+			return auth.ErrDeviceNotFound
+		}
+		if err != nil {
+			return err
+		}
+	}
+
+	if _, err := tx.ExecContext(ctx, `
+UPDATE refresh_tokens SET revoked_at = NOW()
+WHERE user_id = $1 AND device_id = $2 AND revoked_at IS NULL`,
+		userID, deviceID); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+var _ auth.DeviceAdmin = (*AuthRepositories)(nil)
