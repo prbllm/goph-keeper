@@ -14,6 +14,8 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+// publicMethods lists RPC full names that skip JWT (unary and stream). All other methods,
+// including BlobService client/server streams (UploadBlob, DownloadBlob), require a valid Bearer access token.
 var publicMethods = map[string]struct{}{
 	"/gophkeeper.v1.AuthService/Register": {},
 	"/gophkeeper.v1.AuthService/Login":    {},

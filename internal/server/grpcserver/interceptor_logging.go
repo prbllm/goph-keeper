@@ -21,7 +21,8 @@ func newLoggingUnaryInterceptor(logger *zap.Logger) grpc.UnaryServerInterceptor 
 		code := status.Code(err)
 
 		logger.Info(
-			"grpc unary request",
+			"grpc request",
+			zap.String("kind", "unary"),
 			zap.String("method", info.FullMethod),
 			zap.Duration("duration", time.Since(start)),
 			zap.String("status_code", code.String()),
@@ -43,7 +44,8 @@ func newLoggingStreamInterceptor(logger *zap.Logger) grpc.StreamServerIntercepto
 		code := status.Code(err)
 
 		logger.Info(
-			"grpc stream request",
+			"grpc request",
+			zap.String("kind", "stream"),
 			zap.String("method", info.FullMethod),
 			zap.Duration("duration", time.Since(start)),
 			zap.String("status_code", code.String()),

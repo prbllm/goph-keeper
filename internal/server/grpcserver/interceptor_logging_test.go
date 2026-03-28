@@ -28,6 +28,9 @@ func TestLoggingUnaryInterceptor_logsStatusAndMethod(t *testing.T) {
 		t.Fatalf("entries: got %d want 1", observed.Len())
 	}
 	fields := observed.All()[0].ContextMap()
+	if got := fields["kind"]; got != "unary" {
+		t.Fatalf("kind: got %v want unary", got)
+	}
 	if got := fields["method"]; got != info.FullMethod {
 		t.Fatalf("method: got %v want %v", got, info.FullMethod)
 	}
@@ -54,6 +57,9 @@ func TestLoggingStreamInterceptor_logsStatusAndMethod(t *testing.T) {
 		t.Fatalf("entries: got %d want 1", observed.Len())
 	}
 	fields := observed.All()[0].ContextMap()
+	if got := fields["kind"]; got != "stream" {
+		t.Fatalf("kind: got %v want stream", got)
+	}
 	if got := fields["method"]; got != info.FullMethod {
 		t.Fatalf("method: got %v want %v", got, info.FullMethod)
 	}

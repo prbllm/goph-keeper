@@ -86,6 +86,28 @@ func TestAuthStreamInterceptor_privateMethodWithoutToken(t *testing.T) {
 	}
 }
 
+func TestAuthStreamInterceptor_blobUploadWithoutToken(t *testing.T) {
+	interceptor := newAuthStreamInterceptor("secret")
+	info := &grpc.StreamServerInfo{FullMethod: "/gophkeeper.v1.BlobService/UploadBlob"}
+	ss := &testServerStream{ctx: context.Background()}
+
+	err := interceptor(nil, ss, info, func(_ any, _ grpc.ServerStream) error { return nil })
+	if status.Code(err) != codes.Unauthenticated {
+		t.Fatalf("code: got %v want %v", status.Code(err), codes.Unauthenticated)
+	}
+}
+
+func TestAuthStreamInterceptor_blobDownloadWithoutToken(t *testing.T) {
+	interceptor := newAuthStreamInterceptor("secret")
+	info := &grpc.StreamServerInfo{FullMethod: "/gophkeeper.v1.BlobService/DownloadBlob"}
+	ss := &testServerStream{ctx: context.Background()}
+
+	err := interceptor(nil, ss, info, func(_ any, _ grpc.ServerStream) error { return nil })
+	if status.Code(err) != codes.Unauthenticated {
+		t.Fatalf("code: got %v want %v", status.Code(err), codes.Unauthenticated)
+	}
+}
+
 func TestAuthUnaryInterceptor_privateMethodWithInvalidBearer(t *testing.T) {
 	interceptor := newAuthUnaryInterceptor("secret")
 	info := &grpc.UnaryServerInfo{FullMethod: "/gophkeeper.v1.AuthService/Logout"}
