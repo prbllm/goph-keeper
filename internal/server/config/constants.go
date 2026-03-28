@@ -17,7 +17,8 @@ const (
 	EnvInlineThresholdBytes = "GOPHKEEPER_INLINE_THRESHOLD_BYTES"
 	EnvMaxBlobSizeBytes     = "GOPHKEEPER_MAX_BLOB_SIZE_BYTES"
 	EnvMaxChunkSizeBytes    = "GOPHKEEPER_MAX_CHUNK_SIZE_BYTES"
-	EnvGRPCMaxMessageBytes  = "GOPHKEEPER_GRPC_MAX_MESSAGE_BYTES"
+	EnvGRPCMaxMessageBytes     = "GOPHKEEPER_GRPC_MAX_MESSAGE_BYTES"
+	EnvUploadSessionTTLHours   = "GOPHKEEPER_UPLOAD_SESSION_TTL_HOURS"
 )
 
 const (
@@ -42,6 +43,8 @@ const (
 	DefaultMaxBlobSizeBytes     = 104857600  // 100 MiB
 	DefaultMaxChunkSizeBytes    = 8388608    // 8 MiB
 	DefaultGRPCMaxMessageBytes  = 104857600  // 100 MiB
+	// DefaultUploadSessionTTLHours is the lifetime of a BlobService upload session after StartBlobUpload.
+	DefaultUploadSessionTTLHours = 24
 )
 
 const (

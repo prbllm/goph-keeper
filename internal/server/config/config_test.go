@@ -64,6 +64,9 @@ func TestLoad_success_defaults(t *testing.T) {
 	if cfg.GRPCTLSKeyPath != config.DefaultGRPCTLSKeyPath {
 		t.Errorf("GRPCTLSKeyPath = %q, want %q", cfg.GRPCTLSKeyPath, config.DefaultGRPCTLSKeyPath)
 	}
+	if cfg.UploadSessionTTLHours != config.DefaultUploadSessionTTLHours {
+		t.Errorf("UploadSessionTTLHours = %d, want %d", cfg.UploadSessionTTLHours, config.DefaultUploadSessionTTLHours)
+	}
 }
 
 func TestLoad_success_overrides(t *testing.T) {
@@ -80,6 +83,7 @@ func TestLoad_success_overrides(t *testing.T) {
 	t.Setenv(config.EnvMaxChunkSizeBytes, "1024")
 	t.Setenv(config.EnvGRPCTLSCertPath, "/tls/cert.pem")
 	t.Setenv(config.EnvGRPCTLSKeyPath, "/tls/key.pem")
+	t.Setenv(config.EnvUploadSessionTTLHours, "48")
 
 	cfg, err := config.Load()
 	if err != nil {
@@ -120,6 +124,9 @@ func TestLoad_success_overrides(t *testing.T) {
 	}
 	if cfg.GRPCTLSKeyPath != "/tls/key.pem" {
 		t.Errorf("GRPCTLSKeyPath = %q", cfg.GRPCTLSKeyPath)
+	}
+	if cfg.UploadSessionTTLHours != 48 {
+		t.Errorf("UploadSessionTTLHours = %d, want 48", cfg.UploadSessionTTLHours)
 	}
 }
 
@@ -210,6 +217,14 @@ func TestLoad_errors(t *testing.T) {
 				t.Setenv(config.EnvRefreshTTLSec, "abc")
 			},
 			wantSub: config.EnvRefreshTTLSec,
+		},
+		{
+			name: "invalid upload session ttl hours",
+			prep: func(t *testing.T) {
+				minimalValidEnv(t)
+				t.Setenv(config.EnvUploadSessionTTLHours, "0")
+			},
+			wantSub: config.EnvUploadSessionTTLHours,
 		},
 		{
 			name: "invalid inline threshold",

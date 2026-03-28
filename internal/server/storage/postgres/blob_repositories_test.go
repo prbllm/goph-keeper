@@ -45,12 +45,12 @@ func TestBlobRepository_GetByID_found(t *testing.T) {
 		"blob_id", "user_id", "object_key",
 		"size_bytes", "checksum",
 		"content_kind", "file_name", "mime_type",
-		"status", "created_at", "committed_at", "deleted_at",
+		"status", "created_at", "committed_at", "deleted_at", "failed_at",
 	}).AddRow(
 		"bid", "uid", "obj-key",
 		uint64(10), []byte{1, 2, 3},
 		"file", "fname.txt", "text/plain",
-		int16(blob.StatusCommitted), created, nil, nil,
+		int16(blob.StatusCommitted), created, nil, nil, nil,
 	)
 
 	mock.ExpectQuery(regexp.QuoteMeta(blobGetByIDSQL)).
@@ -155,6 +155,49 @@ func TestBlobRepository_MarkDeleted_ok(t *testing.T) {
 
 	repo := NewBlobRepository(db)
 	if err := repo.MarkDeleted(context.Background(), "u", "b", at); err != nil {
+		t.Fatal(err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestBlobRepository_MarkFailed_notFound(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	at := time.Date(2025, 3, 1, 12, 0, 0, 0, time.UTC)
+	mock.ExpectExec(regexp.QuoteMeta(blobMarkFailedSQL)).
+		WithArgs(blob.StatusFailed, at, "u", "b", blob.StatusPending, blob.StatusUploading).
+		WillReturnResult(sqlmock.NewResult(0, 0))
+
+	repo := NewBlobRepository(db)
+	err = repo.MarkFailed(context.Background(), "u", "b", at)
+	if !errors.Is(err, blob.ErrNotFound) {
+		t.Fatalf("MarkFailed: got %v want ErrNotFound", err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestBlobRepository_MarkFailed_ok(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	at := time.Date(2025, 3, 1, 12, 0, 0, 0, time.UTC)
+	mock.ExpectExec(regexp.QuoteMeta(blobMarkFailedSQL)).
+		WithArgs(blob.StatusFailed, at, "u", "b", blob.StatusPending, blob.StatusUploading).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+
+	repo := NewBlobRepository(db)
+	if err := repo.MarkFailed(context.Background(), "u", "b", at); err != nil {
 		t.Fatal(err)
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {

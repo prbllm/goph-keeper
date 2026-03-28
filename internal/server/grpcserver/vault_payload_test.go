@@ -45,6 +45,7 @@ func (r vaultPayloadRepo) GetByID(ctx context.Context, uid, bid string) (*blob.B
 
 func (vaultPayloadRepo) MarkCommitted(context.Context, string, string, time.Time) error { return nil }
 func (vaultPayloadRepo) MarkDeleted(context.Context, string, string, time.Time) error   { return nil }
+func (vaultPayloadRepo) MarkFailed(context.Context, string, string, time.Time) error    { return nil }
 
 type vaultPayloadStorage struct {
 	put         func(context.Context, string, io.Reader, int64, string) error

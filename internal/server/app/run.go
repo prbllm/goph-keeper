@@ -84,6 +84,7 @@ func Run() error {
 
 	blobRepo := postgres.NewBlobRepository(db)
 	blobStorage := s3minio.NewObjectStorage(minioClient, cfg.MinioBucket)
+	uploadStore := postgres.NewUploadStore(db)
 
 	deps := &grpcserver.Deps{
 		Logger:      logger,
@@ -92,6 +93,7 @@ func Run() error {
 		VaultEngine: vaultEngine,
 		BlobRepo:    blobRepo,
 		BlobStorage: blobStorage,
+		UploadStore: uploadStore,
 	}
 
 	lis, err := net.Listen("tcp", cfg.GRPCAddr)

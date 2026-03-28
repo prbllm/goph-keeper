@@ -7,7 +7,7 @@ import (
 )
 
 // ErrNotFound is returned by Repository when no blob row exists for the user and blob id
-// (GetByID, or MarkCommitted/MarkDeleted when no row was updated).
+// (GetByID, or when MarkCommitted/MarkDeleted/MarkFailed match no row or no eligible row).
 var ErrNotFound = errors.New("blob not found")
 
 // Status mirrors api/proto BlobStatus enum but stays decoupled from protobuf.
@@ -41,6 +41,7 @@ type Blob struct {
 	CreatedAt   time.Time
 	CommittedAt *time.Time
 	DeletedAt   *time.Time
+	FailedAt    *time.Time
 }
 
 // Repository provides access to blob metadata stored in PostgreSQL.
@@ -53,4 +54,7 @@ type Repository interface {
 	MarkCommitted(ctx context.Context, userID, blobID string, committedAt time.Time) error
 	// MarkDeleted returns ErrNotFound when no row matches user_id and blob_id.
 	MarkDeleted(ctx context.Context, userID, blobID string, deletedAt time.Time) error
+	// MarkFailed sets status to failed and failed_at to at for blobs in pending or uploading state.
+	// Returns ErrNotFound when no row matches or the blob is not in an abortable upload state.
+	MarkFailed(ctx context.Context, userID, blobID string, at time.Time) error
 }

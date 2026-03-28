@@ -53,7 +53,8 @@ CREATE TABLE blobs (
     status SMALLINT NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     committed_at TIMESTAMPTZ,
-    deleted_at TIMESTAMPTZ
+    deleted_at TIMESTAMPTZ,
+    failed_at TIMESTAMPTZ
 );
 
 CREATE INDEX idx_blobs_user_id ON blobs(user_id);

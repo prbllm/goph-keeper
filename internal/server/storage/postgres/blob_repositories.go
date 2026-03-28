@@ -24,7 +24,7 @@ const blobGetByIDSQL = `
 SELECT blob_id, user_id, object_key,
        size_bytes, checksum,
        content_kind, file_name, mime_type,
-       status, created_at, committed_at, deleted_at
+       status, created_at, committed_at, deleted_at, failed_at
 FROM blobs
 WHERE user_id = $1 AND blob_id = $2`
 
@@ -41,38 +41,15 @@ SET status = $1,
     deleted_at = $2
 WHERE user_id = $3 AND blob_id = $4`
 
+const blobMarkFailedSQL = `
+UPDATE blobs
+SET status = $1,
+    failed_at = $2
+WHERE user_id = $3 AND blob_id = $4
+  AND status IN ($5, $6)`
+
 func (r *BlobRepository) Create(ctx context.Context, b *blob.Blob) error {
-	const q = `
-INSERT INTO blobs (
-	blob_id, user_id, object_key,
-	size_bytes, checksum,
-	content_kind, file_name, mime_type,
-	status, created_at, committed_at, deleted_at
-) VALUES (
-	$1, $2, $3,
-	$4, $5,
-	$6, $7, $8,
-	$9, $10, $11, $12
-)`
-
-	var (
-		fileName sql.NullString
-		mimeType sql.NullString
-	)
-	if b.FileName != nil {
-		fileName = sql.NullString{String: *b.FileName, Valid: true}
-	}
-	if b.MimeType != nil {
-		mimeType = sql.NullString{String: *b.MimeType, Valid: true}
-	}
-
-	_, err := r.db.ExecContext(ctx, q,
-		b.BlobID, b.UserID, b.ObjectKey,
-		b.SizeBytes, b.Checksum,
-		b.ContentKind, fileName, mimeType,
-		b.Status, b.CreatedAt, b.CommittedAt, b.DeletedAt,
-	)
-	return err
+	return execInsertBlob(ctx, r.db, b)
 }
 
 func (r *BlobRepository) GetByID(ctx context.Context, userID, blobID string) (*blob.Blob, error) {
@@ -82,13 +59,14 @@ func (r *BlobRepository) GetByID(ctx context.Context, userID, blobID string) (*b
 		mimeType    sql.NullString
 		committedAt sql.NullTime
 		deletedAt   sql.NullTime
+		failedAt    sql.NullTime
 	)
 
 	err := r.db.QueryRowContext(ctx, blobGetByIDSQL, userID, blobID).Scan(
 		&row.BlobID, &row.UserID, &row.ObjectKey,
 		&row.SizeBytes, &row.Checksum,
 		&row.ContentKind, &fileName, &mimeType,
-		&row.Status, &row.CreatedAt, &committedAt, &deletedAt,
+		&row.Status, &row.CreatedAt, &committedAt, &deletedAt, &failedAt,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, blob.ErrNotFound
@@ -111,6 +89,10 @@ func (r *BlobRepository) GetByID(ctx context.Context, userID, blobID string) (*b
 	if deletedAt.Valid {
 		t := deletedAt.Time
 		row.DeletedAt = &t
+	}
+	if failedAt.Valid {
+		t := failedAt.Time
+		row.FailedAt = &t
 	}
 	return &row, nil
 }
@@ -139,6 +121,27 @@ func (r *BlobRepository) MarkDeleted(ctx context.Context, userID, blobID string,
 		blob.StatusDeleted,
 		deletedAt,
 		userID, blobID,
+	)
+	if err != nil {
+		return err
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return blob.ErrNotFound
+	}
+	return nil
+}
+
+func (r *BlobRepository) MarkFailed(ctx context.Context, userID, blobID string, at time.Time) error {
+	res, err := r.db.ExecContext(ctx, blobMarkFailedSQL,
+		blob.StatusFailed,
+		at,
+		userID, blobID,
+		blob.StatusPending,
+		blob.StatusUploading,
 	)
 	if err != nil {
 		return err
