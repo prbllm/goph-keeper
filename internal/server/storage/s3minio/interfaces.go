@@ -2,15 +2,21 @@ package s3minio
 
 import (
 	"context"
+	"io"
 
 	"github.com/minio/minio-go/v7"
 )
 
-// Client is the subset of MinIO operations the server relies on.
+// Client is the MinIO surface used by the server: bucket setup at connect time
+// and object I/O for blobs. Implementations are typically *minio.Client.
 type Client interface {
 	ListBuckets(ctx context.Context) ([]minio.BucketInfo, error)
 	BucketExists(ctx context.Context, bucketName string) (bool, error)
 	MakeBucket(ctx context.Context, bucketName string, opts minio.MakeBucketOptions) error
+
+	PutObject(ctx context.Context, bucketName, objectName string, reader io.Reader, objectSize int64, opts minio.PutObjectOptions) (minio.UploadInfo, error)
+	GetObject(ctx context.Context, bucketName, objectName string, opts minio.GetObjectOptions) (*minio.Object, error)
+	RemoveObject(ctx context.Context, bucketName, objectName string, opts minio.RemoveObjectOptions) error
 }
 
 // Connector dials MinIO and ensures the application bucket exists.

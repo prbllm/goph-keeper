@@ -8,6 +8,8 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"errors"
+	"io"
 	"math/big"
 	"net"
 	"os"
@@ -18,6 +20,7 @@ import (
 
 	gophkeeperv1 "github.com/prbllm/goph-keeper/api/proto/gophkeeper/v1"
 	"github.com/prbllm/goph-keeper/internal/server/auth"
+	"github.com/prbllm/goph-keeper/internal/server/blob"
 	"github.com/prbllm/goph-keeper/internal/server/config"
 	"github.com/prbllm/goph-keeper/internal/server/vault"
 	"go.uber.org/zap"
@@ -63,6 +66,27 @@ func (stubVaultEngine) List(context.Context, string, bool, int32, string) ([]*va
 	return nil, "", nil
 }
 
+type stubBlobRepo struct{}
+
+func (stubBlobRepo) Create(context.Context, *blob.Blob) error { return nil }
+func (stubBlobRepo) GetByID(context.Context, string, string) (*blob.Blob, error) {
+	return nil, blob.ErrNotFound
+}
+func (stubBlobRepo) MarkCommitted(context.Context, string, string, time.Time) error { return nil }
+func (stubBlobRepo) MarkDeleted(context.Context, string, string, time.Time) error   { return nil }
+
+var _ blob.Repository = stubBlobRepo{}
+
+type stubBlobStorage struct{}
+
+func (stubBlobStorage) Put(context.Context, string, io.Reader, int64, string) error { return nil }
+func (stubBlobStorage) Get(context.Context, string) (io.ReadCloser, int64, error) {
+	return nil, 0, errors.New("stub blob storage")
+}
+func (stubBlobStorage) Delete(context.Context, string) error { return nil }
+
+var _ blob.ObjectStorage = stubBlobStorage{}
+
 func TestLoadServerTransportCredentials_missingFiles(t *testing.T) {
 	tmp := t.TempDir()
 	cfg := &config.Config{
@@ -96,6 +120,8 @@ func TestNew_nilTLSCreds(t *testing.T) {
 		Cfg:         &config.Config{},
 		AuthService: stubAuthService{},
 		VaultEngine: stubVaultEngine{},
+		BlobRepo:    stubBlobRepo{},
+		BlobStorage: stubBlobStorage{},
 	}
 	_, err := New(deps, nil)
 	if err == nil {
@@ -115,6 +141,8 @@ func TestNew_nilCfg(t *testing.T) {
 		Cfg:         nil,
 		AuthService: stubAuthService{},
 		VaultEngine: stubVaultEngine{},
+		BlobRepo:    stubBlobRepo{},
+		BlobStorage: stubBlobStorage{},
 	}
 	_, err = New(deps, creds)
 	if err == nil {
@@ -134,6 +162,8 @@ func TestNew_nilLogger(t *testing.T) {
 		Cfg:         &config.Config{},
 		AuthService: stubAuthService{},
 		VaultEngine: stubVaultEngine{},
+		BlobRepo:    stubBlobRepo{},
+		BlobStorage: stubBlobStorage{},
 	}
 	_, err = New(deps, creds)
 	if err == nil {
@@ -153,6 +183,8 @@ func TestNew_nilAuthService(t *testing.T) {
 		Cfg:         &config.Config{JWTSecret: strings.Repeat("a", config.MinJWTSecretLen)},
 		AuthService: nil,
 		VaultEngine: stubVaultEngine{},
+		BlobRepo:    stubBlobRepo{},
+		BlobStorage: stubBlobStorage{},
 	}
 	_, err = New(deps, creds)
 	if err == nil {
@@ -172,10 +204,54 @@ func TestNew_nilVaultEngine(t *testing.T) {
 		Cfg:         &config.Config{JWTSecret: strings.Repeat("a", config.MinJWTSecretLen)},
 		AuthService: &auth.Service{},
 		VaultEngine: nil,
+		BlobRepo:    stubBlobRepo{},
+		BlobStorage: stubBlobStorage{},
 	}
 	_, err = New(deps, creds)
 	if err == nil {
 		t.Fatal("expected error when deps.VaultEngine is nil")
+	}
+}
+
+func TestNew_nilBlobRepo(t *testing.T) {
+	dir := t.TempDir()
+	_, cert, key := writeTestServerTLSChain(t, dir)
+	creds, err := credentials.NewServerTLSFromFile(cert, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	deps := &Deps{
+		Logger:      zap.NewNop(),
+		Cfg:         &config.Config{JWTSecret: strings.Repeat("a", config.MinJWTSecretLen)},
+		AuthService: stubAuthService{},
+		VaultEngine: stubVaultEngine{},
+		BlobRepo:    nil,
+		BlobStorage: stubBlobStorage{},
+	}
+	_, err = New(deps, creds)
+	if err == nil {
+		t.Fatal("expected error when deps.BlobRepo is nil")
+	}
+}
+
+func TestNew_nilBlobStorage(t *testing.T) {
+	dir := t.TempDir()
+	_, cert, key := writeTestServerTLSChain(t, dir)
+	creds, err := credentials.NewServerTLSFromFile(cert, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	deps := &Deps{
+		Logger:      zap.NewNop(),
+		Cfg:         &config.Config{JWTSecret: strings.Repeat("a", config.MinJWTSecretLen)},
+		AuthService: stubAuthService{},
+		VaultEngine: stubVaultEngine{},
+		BlobRepo:    stubBlobRepo{},
+		BlobStorage: nil,
+	}
+	_, err = New(deps, creds)
+	if err == nil {
+		t.Fatal("expected error when deps.BlobStorage is nil")
 	}
 }
 
@@ -191,6 +267,8 @@ func TestNew_success(t *testing.T) {
 		Cfg:         &config.Config{JWTSecret: strings.Repeat("a", config.MinJWTSecretLen)},
 		AuthService: stubAuthService{},
 		VaultEngine: stubVaultEngine{},
+		BlobRepo:    stubBlobRepo{},
+		BlobStorage: stubBlobStorage{},
 	}
 	srv, err := New(deps, creds)
 	if err != nil {

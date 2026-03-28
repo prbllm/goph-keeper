@@ -11,6 +11,7 @@ package mocks
 
 import (
 	context "context"
+	io "io"
 	reflect "reflect"
 
 	minio "github.com/minio/minio-go/v7"
@@ -76,6 +77,45 @@ func (c *MockClientBucketExistsCall) Do(f func(context.Context, string) (bool, e
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockClientBucketExistsCall) DoAndReturn(f func(context.Context, string) (bool, error)) *MockClientBucketExistsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetObject mocks base method.
+func (m *MockClient) GetObject(ctx context.Context, bucketName, objectName string, opts minio.GetObjectOptions) (*minio.Object, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetObject", ctx, bucketName, objectName, opts)
+	ret0, _ := ret[0].(*minio.Object)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetObject indicates an expected call of GetObject.
+func (mr *MockClientMockRecorder) GetObject(ctx, bucketName, objectName, opts any) *MockClientGetObjectCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetObject", reflect.TypeOf((*MockClient)(nil).GetObject), ctx, bucketName, objectName, opts)
+	return &MockClientGetObjectCall{Call: call}
+}
+
+// MockClientGetObjectCall wrap *gomock.Call
+type MockClientGetObjectCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockClientGetObjectCall) Return(arg0 *minio.Object, arg1 error) *MockClientGetObjectCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockClientGetObjectCall) Do(f func(context.Context, string, string, minio.GetObjectOptions) (*minio.Object, error)) *MockClientGetObjectCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockClientGetObjectCall) DoAndReturn(f func(context.Context, string, string, minio.GetObjectOptions) (*minio.Object, error)) *MockClientGetObjectCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -153,6 +193,83 @@ func (c *MockClientMakeBucketCall) Do(f func(context.Context, string, minio.Make
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockClientMakeBucketCall) DoAndReturn(f func(context.Context, string, minio.MakeBucketOptions) error) *MockClientMakeBucketCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// PutObject mocks base method.
+func (m *MockClient) PutObject(ctx context.Context, bucketName, objectName string, reader io.Reader, objectSize int64, opts minio.PutObjectOptions) (minio.UploadInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PutObject", ctx, bucketName, objectName, reader, objectSize, opts)
+	ret0, _ := ret[0].(minio.UploadInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// PutObject indicates an expected call of PutObject.
+func (mr *MockClientMockRecorder) PutObject(ctx, bucketName, objectName, reader, objectSize, opts any) *MockClientPutObjectCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PutObject", reflect.TypeOf((*MockClient)(nil).PutObject), ctx, bucketName, objectName, reader, objectSize, opts)
+	return &MockClientPutObjectCall{Call: call}
+}
+
+// MockClientPutObjectCall wrap *gomock.Call
+type MockClientPutObjectCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockClientPutObjectCall) Return(arg0 minio.UploadInfo, arg1 error) *MockClientPutObjectCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockClientPutObjectCall) Do(f func(context.Context, string, string, io.Reader, int64, minio.PutObjectOptions) (minio.UploadInfo, error)) *MockClientPutObjectCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockClientPutObjectCall) DoAndReturn(f func(context.Context, string, string, io.Reader, int64, minio.PutObjectOptions) (minio.UploadInfo, error)) *MockClientPutObjectCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// RemoveObject mocks base method.
+func (m *MockClient) RemoveObject(ctx context.Context, bucketName, objectName string, opts minio.RemoveObjectOptions) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RemoveObject", ctx, bucketName, objectName, opts)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RemoveObject indicates an expected call of RemoveObject.
+func (mr *MockClientMockRecorder) RemoveObject(ctx, bucketName, objectName, opts any) *MockClientRemoveObjectCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveObject", reflect.TypeOf((*MockClient)(nil).RemoveObject), ctx, bucketName, objectName, opts)
+	return &MockClientRemoveObjectCall{Call: call}
+}
+
+// MockClientRemoveObjectCall wrap *gomock.Call
+type MockClientRemoveObjectCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockClientRemoveObjectCall) Return(arg0 error) *MockClientRemoveObjectCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockClientRemoveObjectCall) Do(f func(context.Context, string, string, minio.RemoveObjectOptions) error) *MockClientRemoveObjectCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockClientRemoveObjectCall) DoAndReturn(f func(context.Context, string, string, minio.RemoveObjectOptions) error) *MockClientRemoveObjectCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

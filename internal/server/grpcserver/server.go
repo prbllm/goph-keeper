@@ -7,6 +7,7 @@ import (
 
 	gophkeeperv1 "github.com/prbllm/goph-keeper/api/proto/gophkeeper/v1"
 	"github.com/prbllm/goph-keeper/internal/server/auth"
+	"github.com/prbllm/goph-keeper/internal/server/blob"
 	"github.com/prbllm/goph-keeper/internal/server/config"
 	"github.com/prbllm/goph-keeper/internal/server/vault"
 	"go.uber.org/zap"
@@ -31,6 +32,8 @@ type Deps struct {
 	Cfg         *config.Config
 	AuthService AuthService
 	VaultEngine vault.Engine
+	BlobRepo    blob.Repository
+	BlobStorage blob.ObjectStorage
 }
 
 var (
@@ -55,7 +58,7 @@ func LoadServerTransportCredentials(cfg *config.Config) (credentials.TransportCr
 
 // New creates a gRPC server and registers core infra services.
 // tlsCreds must be non-nil (typically from LoadServerTransportCredentials).
-// Deps.Logger, Deps.Cfg, Deps.AuthService, and Deps.VaultEngine must be non-nil.
+// Deps.Logger, Deps.Cfg, Deps.AuthService, Deps.VaultEngine, Deps.BlobRepo, and Deps.BlobStorage must be non-nil.
 func New(deps *Deps, tlsCreds credentials.TransportCredentials) (*grpc.Server, error) {
 	if deps == nil {
 		return nil, fmt.Errorf("grpcserver: deps is nil")
@@ -71,6 +74,12 @@ func New(deps *Deps, tlsCreds credentials.TransportCredentials) (*grpc.Server, e
 	}
 	if deps.VaultEngine == nil {
 		return nil, fmt.Errorf("grpcserver: deps.VaultEngine is nil")
+	}
+	if deps.BlobRepo == nil {
+		return nil, fmt.Errorf("grpcserver: deps.BlobRepo is nil")
+	}
+	if deps.BlobStorage == nil {
+		return nil, fmt.Errorf("grpcserver: deps.BlobStorage is nil")
 	}
 	if tlsCreds == nil {
 		return nil, fmt.Errorf("grpcserver: tlsCreds is nil")
