@@ -245,3 +245,108 @@ WHERE user_id = $3 AND blob_id = $4 AND status = $5`)).
 		t.Fatal(err)
 	}
 }
+
+func TestUploadStore_ListExpiredUploadBlobRefs(t *testing.T) {
+	const listExpiredSQL = `
+SELECT b.blob_id, b.object_key
+FROM blobs b
+INNER JOIN upload_sessions u ON b.blob_id = u.blob_id
+WHERE u.expires_at < $1
+  AND b.status IN ($2, $3)
+ORDER BY b.blob_id
+LIMIT $4`
+
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	cut := time.Date(2024, 6, 1, 0, 0, 0, 0, time.UTC)
+	const limit = 50
+	rows := sqlmock.NewRows([]string{"blob_id", "object_key"}).
+		AddRow("blob-a", "objects/u1/ba").
+		AddRow("blob-b", "objects/u1/bb")
+	mock.ExpectQuery(regexp.QuoteMeta(listExpiredSQL)).
+		WithArgs(cut, int16(blob.StatusPending), int16(blob.StatusUploading), limit).
+		WillReturnRows(rows)
+
+	s := NewUploadStore(db)
+	refs, err := s.ListExpiredUploadBlobRefs(context.Background(), cut, limit)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(refs) != 2 {
+		t.Fatalf("len = %d", len(refs))
+	}
+	if refs[0].BlobID != "blob-a" || refs[0].ObjectKey != "objects/u1/ba" {
+		t.Fatalf("refs[0] = %+v", refs[0])
+	}
+	if refs[1].BlobID != "blob-b" || refs[1].ObjectKey != "objects/u1/bb" {
+		t.Fatalf("refs[1] = %+v", refs[1])
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestUploadStore_ListExpiredUploadBlobRefs_nonPositiveLimit(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	s := NewUploadStore(db)
+	refs, err := s.ListExpiredUploadBlobRefs(context.Background(), time.Now().UTC(), 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if refs != nil {
+		t.Fatalf("want nil slice, got %#v", refs)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestUploadStore_DeleteBlobByID(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	mock.ExpectExec(regexp.QuoteMeta(`DELETE FROM blobs WHERE blob_id = $1`)).
+		WithArgs("blob-x").
+		WillReturnResult(sqlmock.NewResult(0, 1))
+
+	s := NewUploadStore(db)
+	if err := s.DeleteBlobByID(context.Background(), "blob-x"); err != nil {
+		t.Fatal(err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestUploadStore_DeleteBlobByID_notFound(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	mock.ExpectExec(regexp.QuoteMeta(`DELETE FROM blobs WHERE blob_id = $1`)).
+		WithArgs("missing").
+		WillReturnResult(sqlmock.NewResult(0, 0))
+
+	s := NewUploadStore(db)
+	err = s.DeleteBlobByID(context.Background(), "missing")
+	if !errors.Is(err, sql.ErrNoRows) {
+		t.Fatalf("DeleteBlobByID: %v", err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatal(err)
+	}
+}

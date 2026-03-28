@@ -10,46 +10,48 @@ import (
 
 // Config holds server settings loaded from the environment.
 type Config struct {
-	GRPCAddr              string
-	GRPCTLSCertPath       string
-	GRPCTLSKeyPath        string
-	LogLevel              string // debug | info | warn | error
-	DatabaseURL           string
-	MinioEndpoint         string
-	MinioAccessKey        string
-	MinioSecretKey        string
-	MinioBucket           string
-	MinioUseSSL           bool
-	JWTSecret             string
-	AccessTTLSec          int
-	RefreshTTLSec         int
-	InlineThresholdBytes  uint64
-	MaxBlobSizeBytes      uint64
-	MaxChunkSizeBytes     uint64
-	GRPCMaxMessageBytes   uint64
-	UploadSessionTTLHours int
+	GRPCAddr                            string
+	GRPCTLSCertPath                     string
+	GRPCTLSKeyPath                      string
+	LogLevel                            string // debug | info | warn | error
+	DatabaseURL                         string
+	MinioEndpoint                       string
+	MinioAccessKey                      string
+	MinioSecretKey                      string
+	MinioBucket                         string
+	MinioUseSSL                         bool
+	JWTSecret                           string
+	AccessTTLSec                        int
+	RefreshTTLSec                       int
+	InlineThresholdBytes                uint64
+	MaxBlobSizeBytes                    uint64
+	MaxChunkSizeBytes                   uint64
+	GRPCMaxMessageBytes                 uint64
+	UploadSessionTTLHours               int
+	UploadSessionCleanupIntervalMinutes int
 }
 
 // Load reads configuration from environment variables.
 func Load() (*Config, error) {
 	cfg := &Config{
-		GRPCAddr:              getEnv(EnvGRPCAddr, DefaultGRPCAddr),
-		GRPCTLSCertPath:       strings.TrimSpace(getEnv(EnvGRPCTLSCertPath, DefaultGRPCTLSCertPath)),
-		GRPCTLSKeyPath:        strings.TrimSpace(getEnv(EnvGRPCTLSKeyPath, DefaultGRPCTLSKeyPath)),
-		LogLevel:              strings.ToLower(getEnv(EnvLogLevel, DefaultLogLevel)),
-		DatabaseURL:           strings.TrimSpace(os.Getenv(EnvDatabaseURL)),
-		MinioEndpoint:         strings.TrimSpace(getEnv(EnvMinioEndpoint, DefaultMinioEndpoint)),
-		MinioAccessKey:        strings.TrimSpace(os.Getenv(EnvMinioAccessKey)),
-		MinioSecretKey:        strings.TrimSpace(os.Getenv(EnvMinioSecretKey)),
-		MinioBucket:           getEnv(EnvMinioBucket, DefaultMinioBucket),
-		JWTSecret:             strings.TrimSpace(os.Getenv(EnvJWTSecret)),
-		AccessTTLSec:          DefaultAccessTTLSec,
-		RefreshTTLSec:         DefaultRefreshTTLSec,
-		InlineThresholdBytes:  DefaultInlineThresholdBytes,
-		MaxBlobSizeBytes:      DefaultMaxBlobSizeBytes,
-		MaxChunkSizeBytes:     DefaultMaxChunkSizeBytes,
-		GRPCMaxMessageBytes:   DefaultGRPCMaxMessageBytes,
-		UploadSessionTTLHours: DefaultUploadSessionTTLHours,
+		GRPCAddr:                            getEnv(EnvGRPCAddr, DefaultGRPCAddr),
+		GRPCTLSCertPath:                     strings.TrimSpace(getEnv(EnvGRPCTLSCertPath, DefaultGRPCTLSCertPath)),
+		GRPCTLSKeyPath:                      strings.TrimSpace(getEnv(EnvGRPCTLSKeyPath, DefaultGRPCTLSKeyPath)),
+		LogLevel:                            strings.ToLower(getEnv(EnvLogLevel, DefaultLogLevel)),
+		DatabaseURL:                         strings.TrimSpace(os.Getenv(EnvDatabaseURL)),
+		MinioEndpoint:                       strings.TrimSpace(getEnv(EnvMinioEndpoint, DefaultMinioEndpoint)),
+		MinioAccessKey:                      strings.TrimSpace(os.Getenv(EnvMinioAccessKey)),
+		MinioSecretKey:                      strings.TrimSpace(os.Getenv(EnvMinioSecretKey)),
+		MinioBucket:                         getEnv(EnvMinioBucket, DefaultMinioBucket),
+		JWTSecret:                           strings.TrimSpace(os.Getenv(EnvJWTSecret)),
+		AccessTTLSec:                        DefaultAccessTTLSec,
+		RefreshTTLSec:                       DefaultRefreshTTLSec,
+		InlineThresholdBytes:                DefaultInlineThresholdBytes,
+		MaxBlobSizeBytes:                    DefaultMaxBlobSizeBytes,
+		MaxChunkSizeBytes:                   DefaultMaxChunkSizeBytes,
+		GRPCMaxMessageBytes:                 DefaultGRPCMaxMessageBytes,
+		UploadSessionTTLHours:               DefaultUploadSessionTTLHours,
+		UploadSessionCleanupIntervalMinutes: DefaultUploadSessionCleanupIntervalMinutes,
 	}
 	useSSL, err := parseBool(getEnv(EnvMinioUseSSL, DefaultMinioUseSSL))
 	if err != nil {
@@ -133,6 +135,13 @@ func Load() (*Config, error) {
 			return nil, fmt.Errorf("%s must be a positive integer", EnvUploadSessionTTLHours)
 		}
 		cfg.UploadSessionTTLHours = n
+	}
+	if v := strings.TrimSpace(os.Getenv(EnvUploadSessionCleanupIntervalMinutes)); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 0 {
+			return nil, fmt.Errorf("%s must be a non-negative integer", EnvUploadSessionCleanupIntervalMinutes)
+		}
+		cfg.UploadSessionCleanupIntervalMinutes = n
 	}
 	if cfg.GRPCMaxMessageBytes > uint64(math.MaxInt) {
 		return nil, fmt.Errorf("%s exceeds maximum supported on this platform", EnvGRPCMaxMessageBytes)

@@ -67,6 +67,9 @@ func TestLoad_success_defaults(t *testing.T) {
 	if cfg.UploadSessionTTLHours != config.DefaultUploadSessionTTLHours {
 		t.Errorf("UploadSessionTTLHours = %d, want %d", cfg.UploadSessionTTLHours, config.DefaultUploadSessionTTLHours)
 	}
+	if cfg.UploadSessionCleanupIntervalMinutes != config.DefaultUploadSessionCleanupIntervalMinutes {
+		t.Errorf("UploadSessionCleanupIntervalMinutes = %d, want %d", cfg.UploadSessionCleanupIntervalMinutes, config.DefaultUploadSessionCleanupIntervalMinutes)
+	}
 }
 
 func TestLoad_success_overrides(t *testing.T) {
@@ -84,6 +87,7 @@ func TestLoad_success_overrides(t *testing.T) {
 	t.Setenv(config.EnvGRPCTLSCertPath, "/tls/cert.pem")
 	t.Setenv(config.EnvGRPCTLSKeyPath, "/tls/key.pem")
 	t.Setenv(config.EnvUploadSessionTTLHours, "48")
+	t.Setenv(config.EnvUploadSessionCleanupIntervalMinutes, "30")
 
 	cfg, err := config.Load()
 	if err != nil {
@@ -127,6 +131,9 @@ func TestLoad_success_overrides(t *testing.T) {
 	}
 	if cfg.UploadSessionTTLHours != 48 {
 		t.Errorf("UploadSessionTTLHours = %d, want 48", cfg.UploadSessionTTLHours)
+	}
+	if cfg.UploadSessionCleanupIntervalMinutes != 30 {
+		t.Errorf("UploadSessionCleanupIntervalMinutes = %d, want 30", cfg.UploadSessionCleanupIntervalMinutes)
 	}
 }
 
@@ -225,6 +232,14 @@ func TestLoad_errors(t *testing.T) {
 				t.Setenv(config.EnvUploadSessionTTLHours, "0")
 			},
 			wantSub: config.EnvUploadSessionTTLHours,
+		},
+		{
+			name: "invalid upload session cleanup interval minutes",
+			prep: func(t *testing.T) {
+				minimalValidEnv(t)
+				t.Setenv(config.EnvUploadSessionCleanupIntervalMinutes, "-1")
+			},
+			wantSub: config.EnvUploadSessionCleanupIntervalMinutes,
 		},
 		{
 			name: "invalid inline threshold",

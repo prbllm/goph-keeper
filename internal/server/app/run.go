@@ -12,6 +12,7 @@ import (
 	"github.com/prbllm/goph-keeper/internal/server/auth"
 	"github.com/prbllm/goph-keeper/internal/server/config"
 	"github.com/prbllm/goph-keeper/internal/server/grpcserver"
+	"github.com/prbllm/goph-keeper/internal/server/jobs"
 	"github.com/prbllm/goph-keeper/internal/server/logging"
 	"github.com/prbllm/goph-keeper/internal/server/migrations"
 	"github.com/prbllm/goph-keeper/internal/server/storage/postgres"
@@ -117,6 +118,15 @@ func Run() error {
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
+
+	go jobs.RunUploadSessionCleanup(
+		ctx,
+		logger,
+		uploadStore,
+		blobStorage,
+		time.Duration(cfg.UploadSessionCleanupIntervalMinutes)*time.Minute,
+		time.Duration(config.UploadSessionCleanupRunTimeoutSeconds)*time.Second,
+	)
 
 	select {
 	case <-ctx.Done():
