@@ -1,6 +1,8 @@
 package config_test
 
 import (
+	"fmt"
+	"math"
 	"strings"
 	"testing"
 
@@ -53,6 +55,9 @@ func TestLoad_success_defaults(t *testing.T) {
 	if cfg.MaxChunkSizeBytes != config.DefaultMaxChunkSizeBytes {
 		t.Errorf("MaxChunkSizeBytes = %d, want %d", cfg.MaxChunkSizeBytes, config.DefaultMaxChunkSizeBytes)
 	}
+	if cfg.GRPCMaxMessageBytes != config.DefaultGRPCMaxMessageBytes {
+		t.Errorf("GRPCMaxMessageBytes = %d, want %d", cfg.GRPCMaxMessageBytes, config.DefaultGRPCMaxMessageBytes)
+	}
 	if cfg.GRPCTLSCertPath != config.DefaultGRPCTLSCertPath {
 		t.Errorf("GRPCTLSCertPath = %q, want %q", cfg.GRPCTLSCertPath, config.DefaultGRPCTLSCertPath)
 	}
@@ -71,7 +76,7 @@ func TestLoad_success_overrides(t *testing.T) {
 	t.Setenv(config.EnvAccessTTLSec, "60")
 	t.Setenv(config.EnvRefreshTTLSec, "600")
 	t.Setenv(config.EnvInlineThresholdBytes, "4096")
-	t.Setenv(config.EnvMaxBlobSizeBytes, "2048")
+	t.Setenv(config.EnvMaxBlobSizeBytes, "8192")
 	t.Setenv(config.EnvMaxChunkSizeBytes, "1024")
 	t.Setenv(config.EnvGRPCTLSCertPath, "/tls/cert.pem")
 	t.Setenv(config.EnvGRPCTLSKeyPath, "/tls/key.pem")
@@ -104,7 +109,7 @@ func TestLoad_success_overrides(t *testing.T) {
 	if cfg.InlineThresholdBytes != 4096 {
 		t.Errorf("InlineThresholdBytes = %d", cfg.InlineThresholdBytes)
 	}
-	if cfg.MaxBlobSizeBytes != 2048 {
+	if cfg.MaxBlobSizeBytes != 8192 {
 		t.Errorf("MaxBlobSizeBytes = %d", cfg.MaxBlobSizeBytes)
 	}
 	if cfg.MaxChunkSizeBytes != 1024 {
@@ -213,6 +218,22 @@ func TestLoad_errors(t *testing.T) {
 				t.Setenv(config.EnvInlineThresholdBytes, "0")
 			},
 			wantSub: config.EnvInlineThresholdBytes,
+		},
+		{
+			name: "inline threshold exceeds max blob size",
+			prep: func(t *testing.T) {
+				minimalValidEnv(t)
+				t.Setenv(config.EnvInlineThresholdBytes, "999999999")
+			},
+			wantSub: config.EnvInlineThresholdBytes,
+		},
+		{
+			name: "grpc max message bytes too large for platform int",
+			prep: func(t *testing.T) {
+				minimalValidEnv(t)
+				t.Setenv(config.EnvGRPCMaxMessageBytes, fmt.Sprintf("%d", uint64(math.MaxInt)+1))
+			},
+			wantSub: config.EnvGRPCMaxMessageBytes,
 		},
 		{
 			name: "invalid MinioUseSSL",

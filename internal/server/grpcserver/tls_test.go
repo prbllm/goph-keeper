@@ -83,7 +83,8 @@ func (stubBlobStorage) Put(context.Context, string, io.Reader, int64, string) er
 func (stubBlobStorage) Get(context.Context, string) (io.ReadCloser, int64, error) {
 	return nil, 0, errors.New("stub blob storage")
 }
-func (stubBlobStorage) Delete(context.Context, string) error { return nil }
+func (stubBlobStorage) Stat(context.Context, string) (int64, error) { return 0, nil }
+func (stubBlobStorage) Delete(context.Context, string) error        { return nil }
 
 var _ blob.ObjectStorage = stubBlobStorage{}
 

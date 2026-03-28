@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/minio/minio-go/v7"
+	"github.com/prbllm/goph-keeper/internal/server/blob"
 	"github.com/prbllm/goph-keeper/internal/server/storage/mocks"
 	"github.com/prbllm/goph-keeper/internal/server/storage/s3minio"
 	"go.uber.org/mock/gomock"
@@ -75,5 +76,31 @@ func TestObjectStorage_Delete(t *testing.T) {
 	s := s3minio.NewObjectStorage(mc, "bucket")
 	if err := s.Delete(ctx, "k"); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestObjectStorage_Stat(t *testing.T) {
+	ctx := context.Background()
+	ctrl := gomock.NewController(t)
+	mc := mocks.NewMockClient(ctrl)
+	mc.EXPECT().StatObject(ctx, "bucket", "k", minio.StatObjectOptions{}).Return(minio.ObjectInfo{Size: 42}, nil)
+
+	s := s3minio.NewObjectStorage(mc, "bucket")
+	n, err := s.Stat(ctx, "k")
+	if err != nil || n != 42 {
+		t.Fatalf("Stat: n=%d err=%v", n, err)
+	}
+}
+
+func TestObjectStorage_Stat_noSuchKey(t *testing.T) {
+	ctx := context.Background()
+	ctrl := gomock.NewController(t)
+	mc := mocks.NewMockClient(ctrl)
+	mc.EXPECT().StatObject(ctx, "bucket", "k", minio.StatObjectOptions{}).Return(minio.ObjectInfo{}, minio.ErrorResponse{Code: "NoSuchKey"})
+
+	s := s3minio.NewObjectStorage(mc, "bucket")
+	_, err := s.Stat(ctx, "k")
+	if !errors.Is(err, blob.ErrObjectNotFound) {
+		t.Fatalf("Stat err=%v want ErrObjectNotFound", err)
 	}
 }

@@ -45,6 +45,17 @@ func (s *ObjectStorage) Get(ctx context.Context, objectKey string) (io.ReadClose
 	return obj, info.Size, nil
 }
 
+func (s *ObjectStorage) Stat(ctx context.Context, objectKey string) (int64, error) {
+	info, err := s.client.StatObject(ctx, s.bucket, objectKey, minio.StatObjectOptions{})
+	if err != nil {
+		if minio.ToErrorResponse(err).Code == "NoSuchKey" {
+			return 0, blob.ErrObjectNotFound
+		}
+		return 0, err
+	}
+	return info.Size, nil
+}
+
 func (s *ObjectStorage) Delete(ctx context.Context, objectKey string) error {
 	return s.client.RemoveObject(ctx, s.bucket, objectKey, minio.RemoveObjectOptions{})
 }

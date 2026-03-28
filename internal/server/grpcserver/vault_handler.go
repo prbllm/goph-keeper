@@ -2,17 +2,26 @@ package grpcserver
 
 import (
 	"context"
+	"strings"
 
 	gophkeeperv1 "github.com/prbllm/goph-keeper/api/proto/gophkeeper/v1"
+	"github.com/prbllm/goph-keeper/internal/server/blob"
+	"github.com/prbllm/goph-keeper/internal/server/config"
 	"github.com/prbllm/goph-keeper/internal/server/vault"
+	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
+// vaultHandler serves VaultService RPCs.
 type vaultHandler struct {
 	gophkeeperv1.UnimplementedVaultServiceServer
-	engine vault.Engine
+	logger      *zap.Logger
+	engine      vault.Engine
+	cfg         *config.Config
+	blobRepo    blob.Repository
+	blobStorage blob.ObjectStorage
 }
 
 func (h vaultHandler) CreateItem(ctx context.Context, req *gophkeeperv1.CreateItemRequest) (*gophkeeperv1.CreateItemResponse, error) {
@@ -24,8 +33,16 @@ func (h vaultHandler) CreateItem(ctx context.Context, req *gophkeeperv1.CreateIt
 	if req == nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid CreateItem request: request is required")
 	}
-	if req.GetTitle() == nil || req.GetMetadata() == nil || req.GetPayload() == nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid CreateItem request: title, metadata and payload are required")
+	if req.GetTitle() == nil || req.GetMetadata() == nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid CreateItem request: title and metadata are required")
+	}
+	if strings.TrimSpace(req.GetBlobId()) == "" && req.GetPayload() == nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid CreateItem request: payload or blob_id is required")
+	}
+
+	pc, pn, bid, sum, err := h.resolveVaultPayload(ctx, userID, req.GetPayload(), req.GetBlobId())
+	if err != nil {
+		return nil, err
 	}
 
 	out, err := h.engine.Create(ctx, userID, req.GetOperationId(), vault.CreateInput{
@@ -34,17 +51,17 @@ func (h vaultHandler) CreateItem(ctx context.Context, req *gophkeeperv1.CreateIt
 		TitleNonce:         req.GetTitle().GetNonce(),
 		MetadataCiphertext: req.GetMetadata().GetCiphertext(),
 		MetadataNonce:      req.GetMetadata().GetNonce(),
-		PayloadCiphertext:  req.GetPayload().GetCiphertext(),
-		PayloadNonce:       req.GetPayload().GetNonce(),
-		BlobID:             stringPtrOrNil(req.GetBlobId()),
-		Checksum:           nil,
+		PayloadCiphertext:  pc,
+		PayloadNonce:       pn,
+		BlobID:             bid,
+		Checksum:           sum,
 	})
 	if err != nil {
 		return nil, toVaultStatusError(err)
 	}
 	return &gophkeeperv1.CreateItemResponse{
-		ItemId:        out.ItemID,
-		Version:       out.Version,
+		ItemId:         out.ItemID,
+		Version:        out.Version,
 		ServerRevision: out.ServerRevision,
 	}, nil
 }
@@ -63,6 +80,16 @@ func (h vaultHandler) GetItem(ctx context.Context, req *gophkeeperv1.GetItemRequ
 	item, err := h.engine.Get(ctx, userID, req.GetItemId())
 	if err != nil {
 		return nil, toVaultStatusError(err)
+	}
+	if item == nil {
+		log := h.logger
+		if log == nil {
+			log = zap.NewNop()
+		}
+		log.Error("vault: Get returned nil item without error",
+			zap.String("user_id", userID),
+			zap.String("item_id", req.GetItemId()))
+		return nil, status.Error(codes.Internal, "vault: internal error")
 	}
 	return &gophkeeperv1.GetItemResponse{
 		Item: toProtoItem(item),
@@ -86,6 +113,14 @@ func (h vaultHandler) ListItems(ctx context.Context, req *gophkeeperv1.ListItems
 		NextPageToken: nextToken,
 	}
 	for _, it := range items {
+		if it == nil {
+			log := h.logger
+			if log == nil {
+				log = zap.NewNop()
+			}
+			log.Error("vault: list returned nil item", zap.String("user_id", userID))
+			return nil, status.Error(codes.Internal, "vault: internal error")
+		}
 		resp.Items = append(resp.Items, toProtoSummary(it))
 	}
 	return resp, nil
@@ -99,11 +134,19 @@ func (h vaultHandler) UpdateItem(ctx context.Context, req *gophkeeperv1.UpdateIt
 	if req == nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid UpdateItem request: request is required")
 	}
-	if req.GetTitle() == nil || req.GetMetadata() == nil || req.GetPayload() == nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid UpdateItem request: title, metadata and payload are required")
+	if req.GetTitle() == nil || req.GetMetadata() == nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid UpdateItem request: title and metadata are required")
+	}
+	if strings.TrimSpace(req.GetBlobId()) == "" && req.GetPayload() == nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid UpdateItem request: payload or blob_id is required")
 	}
 	if req.GetItemId() == "" {
 		return nil, status.Error(codes.InvalidArgument, "invalid UpdateItem request: item_id is required")
+	}
+
+	pc, pn, bid, sum, err := h.resolveVaultPayload(ctx, userID, req.GetPayload(), req.GetBlobId())
+	if err != nil {
+		return nil, err
 	}
 
 	out, err := h.engine.Update(ctx, userID, req.GetOperationId(), req.GetItemId(), req.GetExpectedVersion(), vault.UpdateInput{
@@ -111,10 +154,10 @@ func (h vaultHandler) UpdateItem(ctx context.Context, req *gophkeeperv1.UpdateIt
 		TitleNonce:         req.GetTitle().GetNonce(),
 		MetadataCiphertext: req.GetMetadata().GetCiphertext(),
 		MetadataNonce:      req.GetMetadata().GetNonce(),
-		PayloadCiphertext:  req.GetPayload().GetCiphertext(),
-		PayloadNonce:       req.GetPayload().GetNonce(),
-		BlobID:             stringPtrOrNil(req.GetBlobId()),
-		Checksum:           nil,
+		PayloadCiphertext:  pc,
+		PayloadNonce:       pn,
+		BlobID:             bid,
+		Checksum:           sum,
 	})
 	if err != nil {
 		return nil, toVaultStatusError(err)
@@ -160,18 +203,14 @@ func toVaultStatusError(err error) error {
 	case err == vault.ErrConflict:
 		return status.Error(codes.Aborted, err.Error())
 	default:
-		return status.Error(codes.Internal, "internal error")
+		return status.Error(codes.Internal, "vault: internal error")
 	}
-}
-
-func stringPtrOrNil(s string) *string {
-	if s == "" {
-		return nil
-	}
-	return &s
 }
 
 func toProtoItem(it *vault.Item) *gophkeeperv1.VaultItem {
+	if it == nil {
+		return nil
+	}
 	res := &gophkeeperv1.VaultItem{
 		ItemId:   it.ItemID,
 		UserId:   it.UserID,
@@ -184,10 +223,7 @@ func toProtoItem(it *vault.Item) *gophkeeperv1.VaultItem {
 			Ciphertext: it.MetadataCiphertext,
 			Nonce:      it.MetadataNonce,
 		},
-		Payload: &gophkeeperv1.EncryptedField{
-			Ciphertext: it.PayloadCiphertext,
-			Nonce:      it.PayloadNonce,
-		},
+		Payload:   vaultPayloadToProto(it),
 		Version:   it.Version,
 		Checksum:  it.Checksum,
 		CreatedAt: timestamppb.New(it.CreatedAt),
@@ -203,6 +239,9 @@ func toProtoItem(it *vault.Item) *gophkeeperv1.VaultItem {
 }
 
 func toProtoSummary(it *vault.Item) *gophkeeperv1.ItemSummary {
+	if it == nil {
+		return nil
+	}
 	summary := &gophkeeperv1.ItemSummary{
 		ItemId:   it.ItemID,
 		ItemType: gophkeeperv1.ItemType(it.ItemType),
@@ -225,5 +264,3 @@ func toProtoSummary(it *vault.Item) *gophkeeperv1.ItemSummary {
 	}
 	return summary
 }
-
-

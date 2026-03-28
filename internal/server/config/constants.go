@@ -17,6 +17,7 @@ const (
 	EnvInlineThresholdBytes = "GOPHKEEPER_INLINE_THRESHOLD_BYTES"
 	EnvMaxBlobSizeBytes     = "GOPHKEEPER_MAX_BLOB_SIZE_BYTES"
 	EnvMaxChunkSizeBytes    = "GOPHKEEPER_MAX_CHUNK_SIZE_BYTES"
+	EnvGRPCMaxMessageBytes  = "GOPHKEEPER_GRPC_MAX_MESSAGE_BYTES"
 )
 
 const (
@@ -37,9 +38,10 @@ const (
 	DefaultAccessTTLSec    = 900
 	DefaultRefreshTTLSec   = 2592000
 	// Vault/blob limits returned to clients after auth (bytes).
-	DefaultInlineThresholdBytes = 65536
-	DefaultMaxBlobSizeBytes     = 104857600 // 100 MiB
-	DefaultMaxChunkSizeBytes    = 8388608   // 8 MiB
+	DefaultInlineThresholdBytes = 256 * 1024 // 256 KiB: inline payload in PostgreSQL if ciphertext is at most this size
+	DefaultMaxBlobSizeBytes     = 104857600  // 100 MiB
+	DefaultMaxChunkSizeBytes    = 8388608    // 8 MiB
+	DefaultGRPCMaxMessageBytes  = 104857600  // 100 MiB
 )
 
 const (
@@ -63,3 +65,7 @@ const (
 
 // MinJWTSecretLen is the minimum accepted length for HS256 signing keys.
 const MinJWTSecretLen = 32
+
+// VaultGRPCProtoReserveBytes is reserved when computing max vault payload ciphertext from GRPCMaxMessageBytes
+// (title, metadata, protobuf framing).
+const VaultGRPCProtoReserveBytes = 512 * 1024

@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"strconv"
 	"strings"
@@ -25,6 +26,7 @@ type Config struct {
 	InlineThresholdBytes uint64
 	MaxBlobSizeBytes     uint64
 	MaxChunkSizeBytes    uint64
+	GRPCMaxMessageBytes  uint64
 }
 
 // Load reads configuration from environment variables.
@@ -45,6 +47,7 @@ func Load() (*Config, error) {
 		InlineThresholdBytes: DefaultInlineThresholdBytes,
 		MaxBlobSizeBytes:     DefaultMaxBlobSizeBytes,
 		MaxChunkSizeBytes:    DefaultMaxChunkSizeBytes,
+		GRPCMaxMessageBytes:  DefaultGRPCMaxMessageBytes,
 	}
 	useSSL, err := parseBool(getEnv(EnvMinioUseSSL, DefaultMinioUseSSL))
 	if err != nil {
@@ -114,6 +117,19 @@ func Load() (*Config, error) {
 			return nil, fmt.Errorf("%s must be a positive integer", EnvMaxChunkSizeBytes)
 		}
 		cfg.MaxChunkSizeBytes = n
+	}
+	if v := strings.TrimSpace(os.Getenv(EnvGRPCMaxMessageBytes)); v != "" {
+		n, err := strconv.ParseUint(v, 10, 64)
+		if err != nil || n == 0 {
+			return nil, fmt.Errorf("%s must be a positive integer", EnvGRPCMaxMessageBytes)
+		}
+		cfg.GRPCMaxMessageBytes = n
+	}
+	if cfg.GRPCMaxMessageBytes > uint64(math.MaxInt) {
+		return nil, fmt.Errorf("%s exceeds maximum supported on this platform", EnvGRPCMaxMessageBytes)
+	}
+	if cfg.InlineThresholdBytes > cfg.MaxBlobSizeBytes {
+		return nil, fmt.Errorf("%s must not exceed %s", EnvInlineThresholdBytes, EnvMaxBlobSizeBytes)
 	}
 	return cfg, nil
 }

@@ -2,8 +2,12 @@ package blob
 
 import (
 	"context"
+	"errors"
 	"io"
 )
+
+// ErrObjectNotFound is returned by ObjectStorage.Stat when the object key does not exist.
+var ErrObjectNotFound = errors.New("object not found")
 
 // ObjectStorage abstracts blob content storage in S3/MinIO.
 // It operates on opaque object keys; association with users and blob IDs
@@ -18,8 +22,11 @@ type ObjectStorage interface {
 	// The caller is responsible for closing the reader.
 	Get(ctx context.Context, objectKey string) (io.ReadCloser, int64, error)
 
+	// Stat returns the stored object's size in bytes without reading the body.
+	// If the object does not exist, it returns ErrObjectNotFound.
+	Stat(ctx context.Context, objectKey string) (sizeBytes int64, err error)
+
 	// Delete removes object content by key. It should be idempotent:
 	// deleting a non-existent object must not return an error.
 	Delete(ctx context.Context, objectKey string) error
 }
-

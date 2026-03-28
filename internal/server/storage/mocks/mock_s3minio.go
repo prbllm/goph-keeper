@@ -273,3 +273,42 @@ func (c *MockClientRemoveObjectCall) DoAndReturn(f func(context.Context, string,
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
+
+// StatObject mocks base method.
+func (m *MockClient) StatObject(ctx context.Context, bucketName, objectName string, opts minio.StatObjectOptions) (minio.ObjectInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "StatObject", ctx, bucketName, objectName, opts)
+	ret0, _ := ret[0].(minio.ObjectInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// StatObject indicates an expected call of StatObject.
+func (mr *MockClientMockRecorder) StatObject(ctx, bucketName, objectName, opts any) *MockClientStatObjectCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StatObject", reflect.TypeOf((*MockClient)(nil).StatObject), ctx, bucketName, objectName, opts)
+	return &MockClientStatObjectCall{Call: call}
+}
+
+// MockClientStatObjectCall wrap *gomock.Call
+type MockClientStatObjectCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockClientStatObjectCall) Return(arg0 minio.ObjectInfo, arg1 error) *MockClientStatObjectCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockClientStatObjectCall) Do(f func(context.Context, string, string, minio.StatObjectOptions) (minio.ObjectInfo, error)) *MockClientStatObjectCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockClientStatObjectCall) DoAndReturn(f func(context.Context, string, string, minio.StatObjectOptions) (minio.ObjectInfo, error)) *MockClientStatObjectCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}

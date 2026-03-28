@@ -87,8 +87,11 @@ func New(deps *Deps, tlsCreds credentials.TransportCredentials) (*grpc.Server, e
 
 	deps.Logger.Debug("gRPC: registering health services")
 
+	maxMsg := int(deps.Cfg.GRPCMaxMessageBytes)
 	s := grpc.NewServer(
 		grpc.Creds(tlsCreds),
+		grpc.MaxRecvMsgSize(maxMsg),
+		grpc.MaxSendMsgSize(maxMsg),
 		grpc.ChainUnaryInterceptor(
 			newLoggingUnaryInterceptor(deps.Logger),
 			newRecoveryUnaryInterceptor(deps.Logger),
@@ -108,7 +111,13 @@ func New(deps *Deps, tlsCreds credentials.TransportCredentials) (*grpc.Server, e
 	gophkeeperv1.RegisterAuthServiceServer(s, authHandler{svc: deps.AuthService})
 
 	deps.Logger.Debug("gRPC: registering vault service")
-	gophkeeperv1.RegisterVaultServiceServer(s, vaultHandler{engine: deps.VaultEngine})
+	gophkeeperv1.RegisterVaultServiceServer(s, vaultHandler{
+		logger:      deps.Logger,
+		engine:      deps.VaultEngine,
+		cfg:         deps.Cfg,
+		blobRepo:    deps.BlobRepo,
+		blobStorage: deps.BlobStorage,
+	})
 
 	return s, nil
 }
