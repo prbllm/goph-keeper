@@ -7,6 +7,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"database/sql"
 	"encoding/pem"
 	"errors"
 	"io"
@@ -74,7 +75,7 @@ func (stubBlobRepo) GetByID(context.Context, string, string) (*blob.Blob, error)
 }
 func (stubBlobRepo) MarkCommitted(context.Context, string, string, time.Time) error { return nil }
 func (stubBlobRepo) MarkDeleted(context.Context, string, string, time.Time) error   { return nil }
-func (stubBlobRepo) MarkFailed(context.Context, string, string, time.Time) error     { return nil }
+func (stubBlobRepo) MarkFailed(context.Context, string, string, time.Time) error    { return nil }
 
 var _ blob.Repository = stubBlobRepo{}
 
@@ -107,6 +108,22 @@ func (stubBlobStorage) Delete(context.Context, string) error        { return nil
 
 var _ blob.ObjectStorage = stubBlobStorage{}
 
+// tlsTestPool satisfies postgres.Pool for grpcserver.New validation tests.
+type tlsTestPool struct{}
+
+func (tlsTestPool) PingContext(context.Context) error { return nil }
+func (tlsTestPool) Close() error                      { return nil }
+func (tlsTestPool) ExecContext(context.Context, string, ...any) (sql.Result, error) {
+	return nil, nil
+}
+func (tlsTestPool) QueryRowContext(context.Context, string, ...any) *sql.Row { return &sql.Row{} }
+func (tlsTestPool) QueryContext(context.Context, string, ...any) (*sql.Rows, error) {
+	return nil, errors.New("tlsTestPool: QueryContext not supported")
+}
+func (tlsTestPool) BeginTx(context.Context, *sql.TxOptions) (*sql.Tx, error) {
+	return nil, errors.New("tlsTestPool: BeginTx not supported")
+}
+
 func TestLoadServerTransportCredentials_missingFiles(t *testing.T) {
 	tmp := t.TempDir()
 	cfg := &config.Config{
@@ -136,13 +153,15 @@ func TestNew_nilDeps(t *testing.T) {
 
 func TestNew_nilTLSCreds(t *testing.T) {
 	deps := &Deps{
-		Logger:      zap.NewNop(),
-		Cfg:         &config.Config{},
-		AuthService: stubAuthService{},
-		VaultEngine: stubVaultEngine{},
-		BlobRepo:    stubBlobRepo{},
-		BlobStorage: stubBlobStorage{},
-		UploadStore: stubUploadStore{},
+		Logger:       zap.NewNop(),
+		Cfg:          &config.Config{},
+		AuthService:  stubAuthService{},
+		VaultEngine:  stubVaultEngine{},
+		PostgresPool: tlsTestPool{},
+		Now:          time.Now,
+		BlobRepo:     stubBlobRepo{},
+		BlobStorage:  stubBlobStorage{},
+		UploadStore:  stubUploadStore{},
 	}
 	_, err := New(deps, nil)
 	if err == nil {
@@ -246,13 +265,15 @@ func TestNew_nilBlobRepo(t *testing.T) {
 		t.Fatal(err)
 	}
 	deps := &Deps{
-		Logger:      zap.NewNop(),
-		Cfg:         &config.Config{JWTSecret: strings.Repeat("a", config.MinJWTSecretLen)},
-		AuthService: stubAuthService{},
-		VaultEngine: stubVaultEngine{},
-		BlobRepo:    nil,
-		BlobStorage: stubBlobStorage{},
-		UploadStore: stubUploadStore{},
+		Logger:       zap.NewNop(),
+		Cfg:          &config.Config{JWTSecret: strings.Repeat("a", config.MinJWTSecretLen)},
+		AuthService:  stubAuthService{},
+		VaultEngine:  stubVaultEngine{},
+		PostgresPool: tlsTestPool{},
+		Now:          time.Now,
+		BlobRepo:     nil,
+		BlobStorage:  stubBlobStorage{},
+		UploadStore:  stubUploadStore{},
 	}
 	_, err = New(deps, creds)
 	if err == nil {
@@ -268,13 +289,15 @@ func TestNew_nilBlobStorage(t *testing.T) {
 		t.Fatal(err)
 	}
 	deps := &Deps{
-		Logger:      zap.NewNop(),
-		Cfg:         &config.Config{JWTSecret: strings.Repeat("a", config.MinJWTSecretLen)},
-		AuthService: stubAuthService{},
-		VaultEngine: stubVaultEngine{},
-		BlobRepo:    stubBlobRepo{},
-		BlobStorage: nil,
-		UploadStore: stubUploadStore{},
+		Logger:       zap.NewNop(),
+		Cfg:          &config.Config{JWTSecret: strings.Repeat("a", config.MinJWTSecretLen)},
+		AuthService:  stubAuthService{},
+		VaultEngine:  stubVaultEngine{},
+		PostgresPool: tlsTestPool{},
+		Now:          time.Now,
+		BlobRepo:     stubBlobRepo{},
+		BlobStorage:  nil,
+		UploadStore:  stubUploadStore{},
 	}
 	_, err = New(deps, creds)
 	if err == nil {
@@ -290,13 +313,15 @@ func TestNew_nilUploadStore(t *testing.T) {
 		t.Fatal(err)
 	}
 	deps := &Deps{
-		Logger:      zap.NewNop(),
-		Cfg:         &config.Config{JWTSecret: strings.Repeat("a", config.MinJWTSecretLen)},
-		AuthService: stubAuthService{},
-		VaultEngine: stubVaultEngine{},
-		BlobRepo:    stubBlobRepo{},
-		BlobStorage: stubBlobStorage{},
-		UploadStore: nil,
+		Logger:       zap.NewNop(),
+		Cfg:          &config.Config{JWTSecret: strings.Repeat("a", config.MinJWTSecretLen)},
+		AuthService:  stubAuthService{},
+		VaultEngine:  stubVaultEngine{},
+		PostgresPool: tlsTestPool{},
+		Now:          time.Now,
+		BlobRepo:     stubBlobRepo{},
+		BlobStorage:  stubBlobStorage{},
+		UploadStore:  nil,
 	}
 	_, err = New(deps, creds)
 	if err == nil {
@@ -312,13 +337,15 @@ func TestNew_success(t *testing.T) {
 		t.Fatal(err)
 	}
 	deps := &Deps{
-		Logger:      zap.NewNop(),
-		Cfg:         &config.Config{JWTSecret: strings.Repeat("a", config.MinJWTSecretLen)},
-		AuthService: stubAuthService{},
-		VaultEngine: stubVaultEngine{},
-		BlobRepo:    stubBlobRepo{},
-		BlobStorage: stubBlobStorage{},
-		UploadStore: stubUploadStore{},
+		Logger:       zap.NewNop(),
+		Cfg:          &config.Config{JWTSecret: strings.Repeat("a", config.MinJWTSecretLen)},
+		AuthService:  stubAuthService{},
+		VaultEngine:  stubVaultEngine{},
+		PostgresPool: tlsTestPool{},
+		Now:          time.Now,
+		BlobRepo:     stubBlobRepo{},
+		BlobStorage:  stubBlobStorage{},
+		UploadStore:  stubUploadStore{},
 	}
 	srv, err := New(deps, creds)
 	if err != nil {

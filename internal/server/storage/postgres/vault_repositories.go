@@ -13,10 +13,10 @@ import (
 )
 
 type VaultRepository struct {
-	db Pool
+	db Executor
 }
 
-func NewVaultRepository(db Pool) *VaultRepository {
+func NewVaultRepository(db Executor) *VaultRepository {
 	return &VaultRepository{db: db}
 }
 
@@ -126,14 +126,7 @@ WHERE user_id = $1`
 	q.WriteString(fmt.Sprintf(" ORDER BY updated_at DESC, item_id DESC LIMIT $%d", argPos))
 	args = append(args, limit+1) // fetch one extra to derive next page token
 
-	db, ok := r.db.(interface {
-		QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error)
-	})
-	if !ok {
-		return nil, "", errors.New("vault: pool does not support QueryContext")
-	}
-
-	rows, err := db.QueryContext(ctx, q.String(), args...)
+	rows, err := r.db.QueryContext(ctx, q.String(), args...)
 	if err != nil {
 		return nil, "", err
 	}
@@ -231,10 +224,10 @@ RETURNING version`
 }
 
 type RevisionLogRepository struct {
-	db Pool
+	db Executor
 }
 
-func NewRevisionLogRepository(db Pool) *RevisionLogRepository {
+func NewRevisionLogRepository(db Executor) *RevisionLogRepository {
 	return &RevisionLogRepository{db: db}
 }
 
@@ -256,10 +249,10 @@ RETURNING revision_id, changed_at`
 }
 
 type ProcessedOperationsRepository struct {
-	db Pool
+	db Executor
 }
 
-func NewProcessedOperationsRepository(db Pool) *ProcessedOperationsRepository {
+func NewProcessedOperationsRepository(db Executor) *ProcessedOperationsRepository {
 	return &ProcessedOperationsRepository{db: db}
 }
 

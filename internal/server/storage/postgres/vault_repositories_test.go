@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"testing"
 )
 
@@ -12,6 +13,9 @@ func (stubPool) PingContext(context.Context) error                              
 func (stubPool) Close() error                                                       { return nil }
 func (stubPool) ExecContext(context.Context, string, ...any) (sql.Result, error)   { return nil, nil }
 func (stubPool) QueryRowContext(context.Context, string, ...any) *sql.Row          { return &sql.Row{} }
+func (stubPool) QueryContext(context.Context, string, ...any) (*sql.Rows, error) {
+	return nil, errors.New("stubPool: QueryContext not supported")
+}
 func (stubPool) BeginTx(context.Context, *sql.TxOptions) (*sql.Tx, error)          { return nil, nil }
 
 var _ Pool = stubPool{}

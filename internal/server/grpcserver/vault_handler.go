@@ -3,6 +3,7 @@ package grpcserver
 import (
 	"context"
 	"strings"
+	"time"
 
 	gophkeeperv1 "github.com/prbllm/goph-keeper/api/proto/gophkeeper/v1"
 	"github.com/prbllm/goph-keeper/internal/server/blob"
@@ -20,6 +21,7 @@ type vaultHandler struct {
 	logger      *zap.Logger
 	engine      vault.Engine
 	cfg         *config.Config
+	now         func() time.Time
 	blobRepo    blob.Repository
 	blobStorage blob.ObjectStorage
 }
@@ -40,13 +42,18 @@ func (h vaultHandler) CreateItem(ctx context.Context, req *gophkeeperv1.CreateIt
 		return nil, status.Error(codes.InvalidArgument, "invalid CreateItem request: payload or blob_id is required")
 	}
 
-	pc, pn, bid, sum, err := h.resolveVaultPayload(ctx, userID, req.GetPayload(), req.GetBlobId())
+	itemType, ok := concreteProtoItemType(req.GetItemType())
+	if !ok {
+		return nil, status.Error(codes.InvalidArgument, "invalid CreateItem request: item_type must be a concrete type")
+	}
+
+	pc, pn, bid, sum, err := resolveVaultPayload(ctx, h.logger, h.cfg, h.blobRepo, h.blobStorage, h.now, userID, req.GetPayload(), req.GetBlobId())
 	if err != nil {
 		return nil, err
 	}
 
 	out, err := h.engine.Create(ctx, userID, req.GetOperationId(), vault.CreateInput{
-		ItemType:           int16(req.GetItemType()),
+		ItemType:           itemType,
 		TitleCiphertext:    req.GetTitle().GetCiphertext(),
 		TitleNonce:         req.GetTitle().GetNonce(),
 		MetadataCiphertext: req.GetMetadata().GetCiphertext(),
@@ -144,7 +151,7 @@ func (h vaultHandler) UpdateItem(ctx context.Context, req *gophkeeperv1.UpdateIt
 		return nil, status.Error(codes.InvalidArgument, "invalid UpdateItem request: item_id is required")
 	}
 
-	pc, pn, bid, sum, err := h.resolveVaultPayload(ctx, userID, req.GetPayload(), req.GetBlobId())
+	pc, pn, bid, sum, err := resolveVaultPayload(ctx, h.logger, h.cfg, h.blobRepo, h.blobStorage, h.now, userID, req.GetPayload(), req.GetBlobId())
 	if err != nil {
 		return nil, err
 	}

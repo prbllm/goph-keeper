@@ -87,13 +87,15 @@ func Run() error {
 	uploadStore := postgres.NewUploadStore(db)
 
 	deps := &grpcserver.Deps{
-		Logger:      logger,
-		Cfg:         cfg,
-		AuthService: authService,
-		VaultEngine: vaultEngine,
-		BlobRepo:    blobRepo,
-		BlobStorage: blobStorage,
-		UploadStore: uploadStore,
+		Logger:       logger,
+		Cfg:          cfg,
+		AuthService:  authService,
+		VaultEngine:  vaultEngine,
+		PostgresPool: db,
+		Now:          now,
+		BlobRepo:     blobRepo,
+		BlobStorage:  blobStorage,
+		UploadStore:  uploadStore,
 	}
 
 	lis, err := net.Listen("tcp", cfg.GRPCAddr)

@@ -201,6 +201,50 @@ func (c *MockPoolPingContextCall) DoAndReturn(f func(context.Context) error) *Mo
 	return c
 }
 
+// QueryContext mocks base method.
+func (m *MockPool) QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error) {
+	m.ctrl.T.Helper()
+	varargs := []any{ctx, query}
+	for _, a := range args {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "QueryContext", varargs...)
+	ret0, _ := ret[0].(*sql.Rows)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// QueryContext indicates an expected call of QueryContext.
+func (mr *MockPoolMockRecorder) QueryContext(ctx, query any, args ...any) *MockPoolQueryContextCall {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]any{ctx, query}, args...)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "QueryContext", reflect.TypeOf((*MockPool)(nil).QueryContext), varargs...)
+	return &MockPoolQueryContextCall{Call: call}
+}
+
+// MockPoolQueryContextCall wrap *gomock.Call
+type MockPoolQueryContextCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockPoolQueryContextCall) Return(arg0 *sql.Rows, arg1 error) *MockPoolQueryContextCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockPoolQueryContextCall) Do(f func(context.Context, string, ...any) (*sql.Rows, error)) *MockPoolQueryContextCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockPoolQueryContextCall) DoAndReturn(f func(context.Context, string, ...any) (*sql.Rows, error)) *MockPoolQueryContextCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // QueryRowContext mocks base method.
 func (m *MockPool) QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row {
 	m.ctrl.T.Helper()

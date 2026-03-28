@@ -14,6 +14,42 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+func TestVaultHandler_CreateItem_invalidItemType(t *testing.T) {
+	t.Parallel()
+
+	ctrl := gomock.NewController(t)
+	engine := mocks.NewMockEngine(ctrl)
+	h := vaultHandler{
+		logger:      zap.NewNop(),
+		engine:      engine,
+		blobRepo:    stubBlobRepo{},
+		blobStorage: stubBlobStorage{},
+		cfg: &config.Config{
+			InlineThresholdBytes: 1024,
+			MaxBlobSizeBytes:     10 << 20,
+			GRPCMaxMessageBytes:  100 << 20,
+		},
+	}
+
+	ctx := WithAuthContext(context.Background(), "user-1", "dev-1")
+	req := &gophkeeperv1.CreateItemRequest{
+		ItemType:    0,
+		OperationId: "op-1",
+		Title:       &gophkeeperv1.EncryptedField{Ciphertext: []byte("t"), Nonce: []byte("n")},
+		Metadata:    &gophkeeperv1.EncryptedField{Ciphertext: []byte("m"), Nonce: []byte("n")},
+		Payload:     &gophkeeperv1.EncryptedField{Ciphertext: []byte("p"), Nonce: []byte("n")},
+	}
+	engine.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+
+	_, err := h.CreateItem(ctx, req)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if st, ok := status.FromError(err); !ok || st.Code() != codes.InvalidArgument {
+		t.Fatalf("code=%v, want InvalidArgument", err)
+	}
+}
+
 func TestVaultHandler_CreateItem_missingEncryptedFields(t *testing.T) {
 	t.Parallel()
 

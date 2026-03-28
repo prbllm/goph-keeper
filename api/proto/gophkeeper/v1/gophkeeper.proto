@@ -445,7 +445,8 @@ message RevisionEvent {
   uint64 item_version = 4;
   google.protobuf.Timestamp changed_at = 5;
 
-  // Present for create/update, omitted for delete if desired.
+  // Full item snapshot when vault_items row exists and is well-formed.
+  // May be unset for delete events, or if revision_log has no matching vault_items row (orphan).
   VaultItem item = 6;
 }
 

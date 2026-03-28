@@ -48,30 +48,33 @@ func encryptedFieldEmpty(f *gophkeeperv1.EncryptedField) bool {
 
 // resolveVaultPayload maps request payload/blob_id to vault storage: small inline in PostgreSQL,
 // large ciphertext uploaded to S3 as a single object, or reference to an existing committed blob.
-func (h vaultHandler) resolveVaultPayload(ctx context.Context, userID string, payload *gophkeeperv1.EncryptedField, blobIDReq string) (
+// now sets blob CreatedAt / CommittedAt; if nil, time.Now is used.
+func resolveVaultPayload(ctx context.Context, log *zap.Logger, cfg *config.Config, blobRepo blob.Repository, blobStorage blob.ObjectStorage, now func() time.Time, userID string, payload *gophkeeperv1.EncryptedField, blobIDReq string) (
 	payloadCiphertext []byte,
 	payloadNonce []byte,
 	blobID *string,
 	checksum []byte,
 	err error,
 ) {
-	log := h.logger
 	if log == nil {
 		log = zap.NewNop()
 	}
+	if now == nil {
+		now = time.Now
+	}
 
-	if h.cfg == nil || h.blobRepo == nil || h.blobStorage == nil {
+	if cfg == nil || blobRepo == nil || blobStorage == nil {
 		return nil, nil, nil, nil, status.Error(codes.Internal, "vault: storage not configured")
 	}
 
-	maxCipher := effectiveMaxPayloadCiphertextBytes(h.cfg)
+	maxCipher := effectiveMaxPayloadCiphertextBytes(cfg)
 
 	blobIDReq = strings.TrimSpace(blobIDReq)
 	if blobIDReq != "" {
 		if !encryptedFieldEmpty(payload) {
 			return nil, nil, nil, nil, status.Error(codes.InvalidArgument, "blob_id and payload are mutually exclusive")
 		}
-		b, err := h.blobRepo.GetByID(ctx, userID, blobIDReq)
+		b, err := blobRepo.GetByID(ctx, userID, blobIDReq)
 		if errors.Is(err, blob.ErrNotFound) {
 			return nil, nil, nil, nil, status.Error(codes.InvalidArgument, "blob not found")
 		}
@@ -88,7 +91,7 @@ func (h vaultHandler) resolveVaultPayload(ctx context.Context, userID string, pa
 		if strings.TrimSpace(b.ObjectKey) == "" {
 			return nil, nil, nil, nil, status.Error(codes.InvalidArgument, "vault: blob object key missing")
 		}
-		stSize, err := h.blobStorage.Stat(ctx, b.ObjectKey)
+		stSize, err := blobStorage.Stat(ctx, b.ObjectKey)
 		if err != nil {
 			if errors.Is(err, blob.ErrObjectNotFound) {
 				return nil, nil, nil, nil, status.Error(codes.InvalidArgument, "vault: blob missing from object storage")
@@ -133,7 +136,7 @@ func (h vaultHandler) resolveVaultPayload(ctx context.Context, userID string, pa
 		return nil, nil, nil, nil, status.Error(codes.InvalidArgument, "payload ciphertext exceeds configured limit")
 	}
 
-	if uint64(len(ct)) <= h.cfg.InlineThresholdBytes {
+	if uint64(len(ct)) <= cfg.InlineThresholdBytes {
 		return ct, nonce, nil, nil, nil
 	}
 
@@ -142,12 +145,12 @@ func (h vaultHandler) resolveVaultPayload(ctx context.Context, userID string, pa
 	sum := sha256.Sum256(ct)
 	checksum = sum[:]
 
-	if err := h.blobStorage.Put(ctx, objectKey, bytes.NewReader(ct), int64(len(ct)), "application/octet-stream"); err != nil {
+	if err := blobStorage.Put(ctx, objectKey, bytes.NewReader(ct), int64(len(ct)), "application/octet-stream"); err != nil {
 		log.Error("vault: blob upload failed", zap.String("object_key", objectKey), zap.Error(err))
 		return nil, nil, nil, nil, status.Error(codes.Internal, "vault: blob upload failed")
 	}
 
-	now := time.Now().UTC()
+	ts := now().UTC()
 	brow := &blob.Blob{
 		BlobID:      blobUUID,
 		UserID:      userID,
@@ -156,11 +159,11 @@ func (h vaultHandler) resolveVaultPayload(ctx context.Context, userID string, pa
 		Checksum:    checksum,
 		ContentKind: "application/octet-stream",
 		Status:      blob.StatusCommitted,
-		CreatedAt:   now,
-		CommittedAt: &now,
+		CreatedAt:   ts,
+		CommittedAt: &ts,
 	}
-	if err := h.blobRepo.Create(ctx, brow); err != nil {
-		if delErr := h.blobStorage.Delete(ctx, objectKey); delErr != nil {
+	if err := blobRepo.Create(ctx, brow); err != nil {
+		if delErr := blobStorage.Delete(ctx, objectKey); delErr != nil {
 			log.Warn("vault: compensating blob delete failed",
 				zap.String("object_key", objectKey),
 				zap.Error(delErr))

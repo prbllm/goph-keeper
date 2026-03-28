@@ -3231,7 +3231,8 @@ type RevisionEvent struct {
 	ChangeType  ChangeType             `protobuf:"varint,3,opt,name=change_type,json=changeType,proto3,enum=gophkeeper.v1.ChangeType" json:"change_type,omitempty"`
 	ItemVersion uint64                 `protobuf:"varint,4,opt,name=item_version,json=itemVersion,proto3" json:"item_version,omitempty"`
 	ChangedAt   *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=changed_at,json=changedAt,proto3" json:"changed_at,omitempty"`
-	// Present for create/update, omitted for delete if desired.
+	// Full item snapshot when vault_items row exists and is well-formed.
+	// May be unset for delete events, or if revision_log has no matching vault_items row (orphan).
 	Item          *VaultItem `protobuf:"bytes,6,opt,name=item,proto3" json:"item,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

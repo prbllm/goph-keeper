@@ -88,7 +88,7 @@ func TestResolveVaultPayload(t *testing.T) {
 
 	t.Run("storage not configured", func(t *testing.T) {
 		h := vaultHandler{cfg: testVaultCfg()}
-		_, _, _, _, err := h.resolveVaultPayload(ctx, userID, &gophkeeperv1.EncryptedField{
+		_, _, _, _, err := resolveVaultPayload(ctx, h.logger, h.cfg, h.blobRepo, h.blobStorage, time.Now, userID, &gophkeeperv1.EncryptedField{
 			Ciphertext: []byte("x"), Nonce: []byte("y"),
 		}, "")
 		if status.Code(err) != codes.Internal {
@@ -103,7 +103,7 @@ func TestResolveVaultPayload(t *testing.T) {
 			blobRepo:    vaultPayloadRepo{},
 			blobStorage: &vaultPayloadStorage{},
 		}
-		_, _, _, _, err := h.resolveVaultPayload(ctx, userID, &gophkeeperv1.EncryptedField{}, "")
+		_, _, _, _, err := resolveVaultPayload(ctx, h.logger, h.cfg, h.blobRepo, h.blobStorage, time.Now, userID, &gophkeeperv1.EncryptedField{}, "")
 		if status.Code(err) != codes.InvalidArgument {
 			t.Fatalf("code=%v, want InvalidArgument", status.Code(err))
 		}
@@ -116,7 +116,7 @@ func TestResolveVaultPayload(t *testing.T) {
 			blobRepo:    vaultPayloadRepo{},
 			blobStorage: &vaultPayloadStorage{},
 		}
-		_, _, _, _, err := h.resolveVaultPayload(ctx, userID, &gophkeeperv1.EncryptedField{
+		_, _, _, _, err := resolveVaultPayload(ctx, h.logger, h.cfg, h.blobRepo, h.blobStorage, time.Now, userID, &gophkeeperv1.EncryptedField{
 			Ciphertext: []byte("a"), Nonce: []byte("b"),
 		}, "blob-1")
 		if status.Code(err) != codes.InvalidArgument {
@@ -135,7 +135,7 @@ func TestResolveVaultPayload(t *testing.T) {
 			},
 			blobStorage: &vaultPayloadStorage{},
 		}
-		_, _, _, _, err := h.resolveVaultPayload(ctx, userID, nil, "bid")
+		_, _, _, _, err := resolveVaultPayload(ctx, h.logger, h.cfg, h.blobRepo, h.blobStorage, time.Now, userID, nil, "bid")
 		if status.Code(err) != codes.Internal {
 			t.Fatalf("code=%v", status.Code(err))
 		}
@@ -155,7 +155,7 @@ func TestResolveVaultPayload(t *testing.T) {
 			},
 			blobStorage: &vaultPayloadStorage{},
 		}
-		_, _, _, _, err := h.resolveVaultPayload(ctx, userID, nil, "missing")
+		_, _, _, _, err := resolveVaultPayload(ctx, h.logger, h.cfg, h.blobRepo, h.blobStorage, time.Now, userID, nil, "missing")
 		if status.Code(err) != codes.InvalidArgument || !strings.Contains(err.Error(), "blob not found") {
 			t.Fatalf("err=%v", err)
 		}
@@ -172,7 +172,7 @@ func TestResolveVaultPayload(t *testing.T) {
 			},
 			blobStorage: &vaultPayloadStorage{},
 		}
-		_, _, _, _, err := h.resolveVaultPayload(ctx, userID, nil, "bid")
+		_, _, _, _, err := resolveVaultPayload(ctx, h.logger, h.cfg, h.blobRepo, h.blobStorage, time.Now, userID, nil, "bid")
 		if status.Code(err) != codes.InvalidArgument {
 			t.Fatalf("code=%v", status.Code(err))
 		}
@@ -194,7 +194,7 @@ func TestResolveVaultPayload(t *testing.T) {
 			},
 			blobStorage: &vaultPayloadStorage{},
 		}
-		_, _, _, _, err := h.resolveVaultPayload(ctx, userID, nil, "bid")
+		_, _, _, _, err := resolveVaultPayload(ctx, h.logger, h.cfg, h.blobRepo, h.blobStorage, time.Now, userID, nil, "bid")
 		if status.Code(err) != codes.InvalidArgument {
 			t.Fatalf("code=%v", status.Code(err))
 		}
@@ -219,7 +219,7 @@ func TestResolveVaultPayload(t *testing.T) {
 				statHook: func(string) (int64, error) { return int64(big), nil },
 			},
 		}
-		_, _, _, _, err := h.resolveVaultPayload(ctx, userID, nil, "big-blob")
+		_, _, _, _, err := resolveVaultPayload(ctx, h.logger, h.cfg, h.blobRepo, h.blobStorage, time.Now, userID, nil, "big-blob")
 		if status.Code(err) != codes.InvalidArgument {
 			t.Fatalf("code=%v", status.Code(err))
 		}
@@ -243,7 +243,7 @@ func TestResolveVaultPayload(t *testing.T) {
 				statHook: func(string) (int64, error) { return 0, blob.ErrObjectNotFound },
 			},
 		}
-		_, _, _, _, err := h.resolveVaultPayload(ctx, userID, nil, "bid")
+		_, _, _, _, err := resolveVaultPayload(ctx, h.logger, h.cfg, h.blobRepo, h.blobStorage, time.Now, userID, nil, "bid")
 		if status.Code(err) != codes.InvalidArgument {
 			t.Fatalf("code=%v", status.Code(err))
 		}
@@ -267,7 +267,7 @@ func TestResolveVaultPayload(t *testing.T) {
 				statHook: func(string) (int64, error) { return 127, nil },
 			},
 		}
-		_, _, _, _, err := h.resolveVaultPayload(ctx, userID, nil, "bid")
+		_, _, _, _, err := resolveVaultPayload(ctx, h.logger, h.cfg, h.blobRepo, h.blobStorage, time.Now, userID, nil, "bid")
 		if status.Code(err) != codes.InvalidArgument {
 			t.Fatalf("code=%v", status.Code(err))
 		}
@@ -291,7 +291,7 @@ func TestResolveVaultPayload(t *testing.T) {
 				statHook: func(string) (int64, error) { return 0, errors.New("secret storage detail") },
 			},
 		}
-		_, _, _, _, err := h.resolveVaultPayload(ctx, userID, nil, "bid")
+		_, _, _, _, err := resolveVaultPayload(ctx, h.logger, h.cfg, h.blobRepo, h.blobStorage, time.Now, userID, nil, "bid")
 		if status.Code(err) != codes.Internal {
 			t.Fatalf("code=%v", status.Code(err))
 		}
@@ -316,7 +316,7 @@ func TestResolveVaultPayload(t *testing.T) {
 			},
 			blobStorage: &vaultPayloadStorage{},
 		}
-		_, _, _, _, err := h.resolveVaultPayload(ctx, userID, nil, "bid")
+		_, _, _, _, err := resolveVaultPayload(ctx, h.logger, h.cfg, h.blobRepo, h.blobStorage, time.Now, userID, nil, "bid")
 		if status.Code(err) != codes.InvalidArgument {
 			t.Fatalf("code=%v", status.Code(err))
 		}
@@ -340,7 +340,7 @@ func TestResolveVaultPayload(t *testing.T) {
 				statHook: func(string) (int64, error) { return -1, nil },
 			},
 		}
-		_, _, _, _, err := h.resolveVaultPayload(ctx, userID, nil, "bid")
+		_, _, _, _, err := resolveVaultPayload(ctx, h.logger, h.cfg, h.blobRepo, h.blobStorage, time.Now, userID, nil, "bid")
 		if status.Code(err) != codes.Internal {
 			t.Fatalf("code=%v", status.Code(err))
 		}
@@ -353,7 +353,7 @@ func TestResolveVaultPayload(t *testing.T) {
 			blobRepo:    vaultPayloadRepo{},
 			blobStorage: &vaultPayloadStorage{},
 		}
-		_, _, _, _, err := h.resolveVaultPayload(ctx, userID, &gophkeeperv1.EncryptedField{
+		_, _, _, _, err := resolveVaultPayload(ctx, h.logger, h.cfg, h.blobRepo, h.blobStorage, time.Now, userID, &gophkeeperv1.EncryptedField{
 			Ciphertext: []byte("x"),
 		}, "")
 		if status.Code(err) != codes.InvalidArgument {
@@ -386,7 +386,7 @@ func TestResolveVaultPayload(t *testing.T) {
 				},
 			},
 		}
-		pc, pn, bid, cs, err := h.resolveVaultPayload(ctx, userID, nil, "my-blob")
+		pc, pn, bid, cs, err := resolveVaultPayload(ctx, h.logger, h.cfg, h.blobRepo, h.blobStorage, time.Now, userID, nil, "my-blob")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -416,7 +416,7 @@ func TestResolveVaultPayload(t *testing.T) {
 			blobRepo:    vaultPayloadRepo{},
 			blobStorage: &vaultPayloadStorage{},
 		}
-		_, _, _, _, err := h.resolveVaultPayload(ctx, userID, &gophkeeperv1.EncryptedField{
+		_, _, _, _, err := resolveVaultPayload(ctx, h.logger, h.cfg, h.blobRepo, h.blobStorage, time.Now, userID, &gophkeeperv1.EncryptedField{
 			Ciphertext: ct, Nonce: []byte("n"),
 		}, "")
 		if status.Code(err) != codes.InvalidArgument {
@@ -432,7 +432,7 @@ func TestResolveVaultPayload(t *testing.T) {
 			blobStorage: &vaultPayloadStorage{},
 		}
 		ct, nonce := []byte(strings.Repeat("a", 100)), []byte("nonce")
-		pc, pn, bid, sum, err := h.resolveVaultPayload(ctx, userID, &gophkeeperv1.EncryptedField{
+		pc, pn, bid, sum, err := resolveVaultPayload(ctx, h.logger, h.cfg, h.blobRepo, h.blobStorage, time.Now, userID, &gophkeeperv1.EncryptedField{
 			Ciphertext: ct, Nonce: nonce,
 		}, "")
 		if err != nil {
@@ -459,7 +459,7 @@ func TestResolveVaultPayload(t *testing.T) {
 			blobStorage: store,
 		}
 		ct := []byte(strings.Repeat("b", 2048))
-		_, _, _, _, err := h.resolveVaultPayload(ctx, userID, &gophkeeperv1.EncryptedField{
+		_, _, _, _, err := resolveVaultPayload(ctx, h.logger, h.cfg, h.blobRepo, h.blobStorage, time.Now, userID, &gophkeeperv1.EncryptedField{
 			Ciphertext: ct, Nonce: []byte("n"),
 		}, "")
 		if status.Code(err) != codes.Internal {
@@ -476,6 +476,8 @@ func TestResolveVaultPayload(t *testing.T) {
 	t.Run("upload success", func(t *testing.T) {
 		var created *blob.Blob
 		store := &vaultPayloadStorage{}
+		fixed := time.Date(2024, 3, 15, 12, 30, 0, 0, time.UTC)
+		clock := func() time.Time { return fixed }
 		h := vaultHandler{
 			logger: testVaultLogger(),
 			cfg:    testVaultCfg(),
@@ -488,7 +490,7 @@ func TestResolveVaultPayload(t *testing.T) {
 			blobStorage: store,
 		}
 		ct := []byte(strings.Repeat("c", 2048))
-		pc, pn, bid, sum, err := h.resolveVaultPayload(ctx, userID, &gophkeeperv1.EncryptedField{
+		pc, pn, bid, sum, err := resolveVaultPayload(ctx, h.logger, h.cfg, h.blobRepo, h.blobStorage, clock, userID, &gophkeeperv1.EncryptedField{
 			Ciphertext: ct, Nonce: []byte("n"),
 		}, "")
 		if err != nil {
@@ -502,6 +504,9 @@ func TestResolveVaultPayload(t *testing.T) {
 		}
 		if len(sum) != 32 {
 			t.Fatalf("checksum len=%d", len(sum))
+		}
+		if !created.CreatedAt.Equal(fixed) || created.CommittedAt == nil || !created.CommittedAt.Equal(fixed) {
+			t.Fatalf("blob times: created=%v committed=%v want %v", created.CreatedAt, created.CommittedAt, fixed)
 		}
 	})
 }
