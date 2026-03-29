@@ -47,7 +47,10 @@ type GRPCClient struct {
 // Добавляет interceptor для автоматической аутентификации запросов.
 // Возвращает указатель на клиент или ошибку инициализации.
 func New(addr string, token string, opts DialOptions) (*GRPCClient, error) {
-	dialOpts := []grpc.DialOption{grpc.WithUnaryInterceptor(AuthInterceptor(token))}
+	dialOpts := []grpc.DialOption{
+		grpc.WithUnaryInterceptor(AuthInterceptor(token)),
+		grpc.WithStreamInterceptor(StreamAuthInterceptor(token)),
+	}
 
 	if opts.Insecure {
 		dialOpts = append(dialOpts, grpc.WithTransportCredentials(insecure.NewCredentials()))

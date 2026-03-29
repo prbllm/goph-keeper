@@ -1,3 +1,4 @@
+// Package postgres implements SQL repositories, transactional vault engine helpers, and connection pooling for the server.
 package postgres
 
 import (

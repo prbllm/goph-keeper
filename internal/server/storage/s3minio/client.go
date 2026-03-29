@@ -11,7 +11,9 @@ import (
 	"github.com/prbllm/goph-keeper/internal/server/config"
 )
 
-var _ Client = (*minio.Client)(nil)
+type MinioClient = minio.Client
+
+var _ Client = (*MinioClient)(nil)
 
 // DefaultConnector builds a MinIO client and ensures the bucket exists.
 var DefaultConnector Connector = minioConnector{}

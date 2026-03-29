@@ -48,6 +48,13 @@ services:
       GOPHKEEPER_MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
       GOPHKEEPER_MINIO_BUCKET: ${GOPHKEEPER_MINIO_BUCKET:-gophkeeper}
       GOPHKEEPER_MINIO_USE_SSL: ${GOPHKEEPER_MINIO_USE_SSL:-false}
+      GOPHKEEPER_JWT_SECRET: ${GOPHKEEPER_JWT_SECRET:-gophkeeper-local-dev-jwt-secret-replace-in-production}
+      GOPHKEEPER_ACCESS_TOKEN_TTL_SECONDS: ${GOPHKEEPER_ACCESS_TOKEN_TTL_SECONDS:-900}
+      GOPHKEEPER_REFRESH_TOKEN_TTL_SECONDS: ${GOPHKEEPER_REFRESH_TOKEN_TTL_SECONDS:-2592000}
+      GOPHKEEPER_GRPC_TLS_CERT_PATH: ${GOPHKEEPER_GRPC_TLS_CERT_PATH:-/certs/server.crt}
+      GOPHKEEPER_GRPC_TLS_KEY_PATH: ${GOPHKEEPER_GRPC_TLS_KEY_PATH:-/certs/server.key}
+    volumes:
+      - ./certs:/certs:ro
     depends_on:
       postgres:
         condition: service_healthy
