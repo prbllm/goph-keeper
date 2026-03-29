@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestEncrypt_Success(t *testing.T) {
@@ -336,12 +337,9 @@ func BenchmarkEncrypt(b *testing.B) {
 	key := make([]byte, 32)
 	data := []byte("benchmark data")
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_, _, err := Encrypt(key, data)
-		if err != nil {
-			b.Fatal(err)
-		}
+		require.NoError(b, err)
 	}
 }
 
@@ -351,16 +349,11 @@ func BenchmarkDecrypt(b *testing.B) {
 	data := []byte("benchmark data")
 
 	nonce, ciphertext, err := Encrypt(key, data)
-	if err != nil {
-		b.Fatal(err)
-	}
+	require.NoError(b, err)
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_, err := Decrypt(key, nonce, ciphertext)
-		if err != nil {
-			b.Fatal(err)
-		}
+		require.NoError(b, err)
 	}
 }
 
@@ -369,17 +362,12 @@ func BenchmarkEncryptDecrypt_RoundTrip(b *testing.B) {
 	key := make([]byte, 32)
 	data := []byte("benchmark data")
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		nonce, ciphertext, err := Encrypt(key, data)
-		if err != nil {
-			b.Fatal(err)
-		}
+		require.NoError(b, err)
 
 		_, err = Decrypt(key, nonce, ciphertext)
-		if err != nil {
-			b.Fatal(err)
-		}
+		require.NoError(b, err)
 	}
 }
 
