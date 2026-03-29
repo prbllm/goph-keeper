@@ -9,6 +9,7 @@ import (
 	"github.com/prbllm/goph-keeper/internal/client/storage"
 	"github.com/prbllm/goph-keeper/internal/client/transport"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNew_Success(t *testing.T) {
@@ -286,12 +287,9 @@ func BenchmarkNew(b *testing.B) {
 	mockStorage.EXPECT().Load().Return(&model.AuthState{}, nil).AnyTimes()
 	mockStorage.EXPECT().LoadSync().Return(&model.SyncState{}, nil).AnyTimes()
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_, err := New(mockClient, mockStorage)
-		if err != nil {
-			b.Fatal(err)
-		}
+		require.NoError(b, err)
 	}
 }
 

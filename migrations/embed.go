@@ -6,3 +6,8 @@ import "embed"
 //
 //go:embed server/*.sql
 var ServerFS embed.FS
+
+// ClientFS contains SQL migration files for the client schema.
+//
+//go:embed client/*.sql
+var ClientFS embed.FS

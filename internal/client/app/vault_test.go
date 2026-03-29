@@ -13,6 +13,7 @@ import (
 	"github.com/prbllm/goph-keeper/internal/client/mocks"
 	"github.com/prbllm/goph-keeper/internal/client/model"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestAddItem_Success(t *testing.T) {
@@ -725,9 +726,7 @@ func BenchmarkAddItem(b *testing.B) {
 
 	for b.Loop() {
 		err := app.AddItem(gophkeeperv1.ItemType_ITEM_TYPE_TEXT, title, nil, payload, "")
-		if err != nil {
-			b.Fatal(err)
-		}
+		require.NoError(b, err)
 		// Очищаем очередь операций для следующей итерации
 		app.SyncState.PendingOperations = nil
 	}
@@ -755,9 +754,7 @@ func BenchmarkDecryptItem(b *testing.B) {
 
 	for b.Loop() {
 		_, _, _, err := app.DecryptItem(item)
-		if err != nil {
-			b.Fatal(err)
-		}
+		require.NoError(b, err)
 	}
 }
 
@@ -1502,12 +1499,9 @@ func BenchmarkUploadFile(b *testing.B) {
 		}, nil).
 		AnyTimes()
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_, err := app.UploadFile(b.Context(), tmpFile.Name(), "")
-		if err != nil {
-			b.Fatal(err)
-		}
+		require.NoError(b, err)
 	}
 }
 
@@ -1567,11 +1561,8 @@ func BenchmarkDownloadFile(b *testing.B) {
 		Return(nil, io.EOF).
 		AnyTimes()
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_, err := app.DownloadFile(b.Context(), "blob-456")
-		if err != nil {
-			b.Fatal(err)
-		}
+		require.NoError(b, err)
 	}
 }

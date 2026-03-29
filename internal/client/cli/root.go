@@ -12,12 +12,12 @@ import (
 // rootCmd — корневая команда CLI приложения.
 // Предоставляет базовый интерфейс и объединяет все подкоманды.
 var rootCmd = &cobra.Command{
-	Use: "goph-keeper",
+	Use:   "goph-keeper",
+	Short: "Secure password manager CLI",
 	CompletionOptions: cobra.CompletionOptions{
 		DisableDefaultCmd: true,
 	},
 	SilenceUsage: true,
-	Short:        "Secure password manager CLI",
 }
 
 // Execute запускает выполнение командного интерфейса.

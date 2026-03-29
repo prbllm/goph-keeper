@@ -26,7 +26,7 @@ var registerCmd = &cobra.Command{
 			return err
 		}
 
-		localStorage, err := storage.New(dataDirPath)
+		localStorage, err := storage.NewSQLiteStorage(dataDirPath)
 		if err != nil {
 			return err
 		}
@@ -81,7 +81,7 @@ var loginCmd = &cobra.Command{
 			return err
 		}
 
-		localStorage, err := storage.New(dataDirPath)
+		localStorage, err := storage.NewSQLiteStorage(dataDirPath)
 		if err != nil {
 			return err
 		}

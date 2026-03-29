@@ -25,7 +25,7 @@ var syncCmd = &cobra.Command{
 			return err
 		}
 
-		localStorage, err := storage.New(dataDirPath)
+		localStorage, err := storage.NewSQLiteStorage(dataDirPath)
 		if err != nil {
 			return err
 		}

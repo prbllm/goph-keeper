@@ -78,7 +78,7 @@ var addCmd = &cobra.Command{
 			return err
 		}
 
-		localStorage, err := storage.New(dataDirPath)
+		localStorage, err := storage.NewSQLiteStorage(dataDirPath)
 		if err != nil {
 			return err
 		}
@@ -148,7 +148,7 @@ var listCmd = &cobra.Command{
 			return err
 		}
 
-		localStorage, err := storage.New(dataDirPath)
+		localStorage, err := storage.NewSQLiteStorage(dataDirPath)
 		if err != nil {
 			return err
 		}
@@ -224,8 +224,8 @@ var listCmd = &cobra.Command{
 var getCmd = &cobra.Command{
 	Use:     "get [id]",
 	Short:   "Get secret",
-	Args:    cobra.ExactArgs(1),
 	GroupID: "vault",
+	Args:    cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		id := args[0]
 
@@ -234,7 +234,7 @@ var getCmd = &cobra.Command{
 			return err
 		}
 
-		localStorage, err := storage.New(dataDirPath)
+		localStorage, err := storage.NewSQLiteStorage(dataDirPath)
 		if err != nil {
 			return err
 		}
@@ -302,8 +302,8 @@ var getCmd = &cobra.Command{
 var updateCmd = &cobra.Command{
 	Use:     "update [id] [type] [data]",
 	Short:   "Update secret",
-	Args:    cobra.RangeArgs(3, 5),
 	GroupID: "vault",
+	Args:    cobra.RangeArgs(3, 5),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		id := args[0]
 
@@ -358,7 +358,7 @@ var updateCmd = &cobra.Command{
 			return err
 		}
 
-		localStorage, err := storage.New(dataDirPath)
+		localStorage, err := storage.NewSQLiteStorage(dataDirPath)
 		if err != nil {
 			return err
 		}
@@ -417,15 +417,15 @@ var updateCmd = &cobra.Command{
 var deleteCmd = &cobra.Command{
 	Use:     "delete [id]",
 	Short:   "Delete secret",
-	Args:    cobra.ExactArgs(1),
 	GroupID: "vault",
+	Args:    cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		dataDirPath, err := cmd.Flags().GetString("data-dir")
 		if err != nil {
 			return err
 		}
 
-		localStorage, err := storage.New(dataDirPath)
+		localStorage, err := storage.NewSQLiteStorage(dataDirPath)
 		if err != nil {
 			return err
 		}
@@ -483,13 +483,13 @@ var deleteCmd = &cobra.Command{
 var uploadCmd = &cobra.Command{
 	Use:     "upload [file]",
 	Short:   "Upload file to vault",
-	Args:    cobra.ExactArgs(1),
 	GroupID: "file",
+	Args:    cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		filePath := args[0]
 
 		dataDirPath, _ := cmd.Flags().GetString("data-dir")
-		localStorage, err := storage.New(dataDirPath)
+		localStorage, err := storage.NewSQLiteStorage(dataDirPath)
 		if err != nil {
 			return err
 		}
@@ -545,14 +545,14 @@ var uploadCmd = &cobra.Command{
 var downloadCmd = &cobra.Command{
 	Use:     "download [id] [output]",
 	Short:   "Download file from vault",
-	Args:    cobra.ExactArgs(2),
 	GroupID: "file",
+	Args:    cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		itemID := args[0]
 		outputPath := args[1]
 
 		dataDirPath, _ := cmd.Flags().GetString("data-dir")
-		localStorage, err := storage.New(dataDirPath)
+		localStorage, err := storage.NewSQLiteStorage(dataDirPath)
 		if err != nil {
 			return err
 		}

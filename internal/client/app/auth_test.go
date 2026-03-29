@@ -12,6 +12,7 @@ import (
 	"github.com/prbllm/goph-keeper/internal/client/mocks"
 	"github.com/prbllm/goph-keeper/internal/client/model"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // TestRegister_Success тестирует успешную регистрацию пользователя
@@ -531,9 +532,7 @@ func BenchmarkRegister(b *testing.B) {
 	for i := 0; b.Loop(); i++ {
 		suffix := strconv.Itoa(i)
 		err := app.Register(b.Context(), "user"+suffix, "password"+suffix)
-		if err != nil {
-			b.Fatal(err)
-		}
+		require.NoError(b, err)
 	}
 }
 
@@ -553,9 +552,7 @@ func BenchmarkLogin(b *testing.B) {
 	dek := make([]byte, 32)
 	_, _ = rand.Read(dek)
 	nonce, encryptedDEK, err := crypto.Encrypt(masterKey, dek)
-	if err != nil {
-		b.Fatal(err)
-	}
+	require.NoError(b, err)
 
 	mockClient.EXPECT().AuthClient().Return(mockAuthClient).AnyTimes()
 	mockAuthClient.EXPECT().Login(gomock.Any(), gomock.Any()).
@@ -575,8 +572,6 @@ func BenchmarkLogin(b *testing.B) {
 
 	for i := 0; b.Loop(); i++ {
 		err := app.Login(b.Context(), "user", password)
-		if err != nil {
-			b.Fatal(err)
-		}
+		require.NoError(b, err)
 	}
 }

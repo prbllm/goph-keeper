@@ -9,6 +9,7 @@ import (
 	"github.com/prbllm/goph-keeper/internal/client/mocks"
 	"github.com/prbllm/goph-keeper/internal/client/model"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 )
 
@@ -695,12 +696,9 @@ func BenchmarkSync(b *testing.B) {
 		AnyTimes()
 	mockStorage.EXPECT().SaveSync(gomock.Any()).Return(nil).AnyTimes()
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		err := app.Sync(b.Context())
-		if err != nil {
-			b.Fatal(err)
-		}
+		require.NoError(b, err)
 		// Восстанавливаем ревизию для следующей итерации
 		app.SyncState.LastRevision = 1000 + uint64(i)
 	}
