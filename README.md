@@ -65,3 +65,11 @@ docker compose up --build
 ```
 
 У сервиса `server` каталог `./certs` смонтирован в `/certs`; в [docker-compose.yml](docker-compose.yml) по умолчанию заданы `GOPHKEEPER_GRPC_TLS_CERT_PATH=/certs/server.crt` и `GOPHKEEPER_GRPC_TLS_KEY_PATH=/certs/server.key`.
+
+### Интеграционные e2e-тесты (testcontainers)
+
+Интеграционные тесты сервера располагаются [internal/integration](internal/integration). Они не входят в обычный `go test ./...`: нужен тег `integration` и **запущенный Docker** для `testcontainers`.
+
+```bash
+go test -tags=integration -count=1 -timeout=600s ./internal/integration/... -v
+```

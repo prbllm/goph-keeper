@@ -22,8 +22,17 @@ import (
 	"google.golang.org/grpc"
 )
 
-// Run starts the server runtime and blocks until shutdown.
+// Run starts the server runtime and blocks until SIGINT or SIGTERM.
 func Run() error {
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+	return RunContext(ctx, nil)
+}
+
+// RunContext starts the full server stack like Run, but shuts down when ctx is cancelled.
+// If onListen is non-nil, it is called once with the bound listener address after Listen succeeds
+// (useful with GOPHKEEPER_GRPC_ADDR=127.0.0.1:0 to discover the ephemeral port).
+func RunContext(ctx context.Context, onListen func(net.Addr)) error {
 	cfg, err := config.Load()
 	if err != nil {
 		return fmt.Errorf("config: %w", err)
@@ -104,6 +113,9 @@ func Run() error {
 	if err != nil {
 		return fmt.Errorf("listen %s: %w", cfg.GRPCAddr, err)
 	}
+	if onListen != nil {
+		onListen(lis.Addr())
+	}
 
 	grpcServer, err := grpcserver.New(deps, tlsCreds)
 	if err != nil {
@@ -112,12 +124,9 @@ func Run() error {
 
 	errCh := make(chan error, 1)
 	go func() {
-		logger.Info("gRPC server listening", zap.String("addr", cfg.GRPCAddr))
+		logger.Info("gRPC server listening", zap.String("addr", lis.Addr().String()))
 		errCh <- grpcServer.Serve(lis)
 	}()
-
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	defer stop()
 
 	go jobs.RunUploadSessionCleanup(
 		ctx,
