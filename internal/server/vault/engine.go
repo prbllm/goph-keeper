@@ -2,11 +2,11 @@ package vault
 
 import (
 	"context"
-	"log"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 )
 
 type Clock func() time.Time
@@ -16,6 +16,7 @@ type EngineService struct {
 	revisions    RevisionLogRepository
 	processedOps ProcessedOperationsRepository
 	now          Clock
+	log          *zap.Logger
 }
 
 func NewEngine(
@@ -23,15 +24,20 @@ func NewEngine(
 	revisions RevisionLogRepository,
 	processedOps ProcessedOperationsRepository,
 	now Clock,
+	log *zap.Logger,
 ) *EngineService {
 	if now == nil {
 		now = time.Now
+	}
+	if log == nil {
+		log = zap.NewNop()
 	}
 	return &EngineService{
 		repo:         repo,
 		revisions:    revisions,
 		processedOps: processedOps,
 		now:          now,
+		log:          log,
 	}
 }
 
@@ -45,7 +51,10 @@ func (e *EngineService) Create(ctx context.Context, userID, operationID string, 
 		item, err := e.repo.GetItem(ctx, userID, op.ItemID)
 		if err != nil {
 			if err == ErrNotFound {
-				log.Printf("vault: Create idempotent lookup found operation but item is missing user_id=%s op_id=%s item_id=%s", userID, operationID, op.ItemID)
+				e.log.Warn("vault: Create idempotent lookup found operation but item is missing",
+					zap.String("user_id", userID),
+					zap.String("operation_id", operationID),
+					zap.String("item_id", op.ItemID))
 				return nil, ErrNotFound
 			}
 			return nil, err
@@ -112,7 +121,11 @@ func (e *EngineService) Update(ctx context.Context, userID, operationID, itemID 
 		return nil, err
 	} else if op != nil {
 		if op.ItemID != "" && op.ItemID != itemID {
-			log.Printf("vault: Update called with mismatched itemID for processed operation user_id=%s op_id=%s stored_item_id=%s request_item_id=%s", userID, operationID, op.ItemID, itemID)
+			e.log.Warn("vault: Update called with mismatched itemID for processed operation",
+				zap.String("user_id", userID),
+				zap.String("operation_id", operationID),
+				zap.String("stored_item_id", op.ItemID),
+				zap.String("request_item_id", itemID))
 			return nil, ErrInvalidArgument
 		}
 		item, err := e.repo.GetItem(ctx, userID, op.ItemID)
@@ -183,13 +196,20 @@ func (e *EngineService) Delete(ctx context.Context, userID, operationID, itemID 
 		return nil, err
 	} else if op != nil {
 		if op.ItemID != "" && op.ItemID != itemID {
-			log.Printf("vault: Delete called with mismatched itemID for processed operation user_id=%s op_id=%s stored_item_id=%s request_item_id=%s", userID, operationID, op.ItemID, itemID)
+			e.log.Warn("vault: Delete called with mismatched itemID for processed operation",
+				zap.String("user_id", userID),
+				zap.String("operation_id", operationID),
+				zap.String("stored_item_id", op.ItemID),
+				zap.String("request_item_id", itemID))
 			return nil, ErrInvalidArgument
 		}
 		item, err := e.repo.GetItem(ctx, userID, op.ItemID)
 		if err != nil {
 			if err == ErrNotFound {
-				log.Printf("vault: Delete idempotent lookup found operation but item is missing user_id=%s op_id=%s item_id=%s", userID, operationID, op.ItemID)
+				e.log.Warn("vault: Delete idempotent lookup found operation but item is missing",
+					zap.String("user_id", userID),
+					zap.String("operation_id", operationID),
+					zap.String("item_id", op.ItemID))
 				return nil, ErrNotFound
 			}
 			return nil, err

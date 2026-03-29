@@ -1,3 +1,4 @@
+// Package s3minio connects to MinIO/S3 and implements blob.ObjectStorage for encrypted vault and blob payloads.
 package s3minio
 
 import (

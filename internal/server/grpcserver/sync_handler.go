@@ -230,7 +230,7 @@ func (h syncHandler) pushCreate(ctx context.Context, userID, opID string, op *go
 	}
 
 	var out *vault.CreateOutput
-	err = postgres.WithVaultEngineTx(ctx, h.pool, clk, func(eng *vault.EngineService) error {
+	err = postgres.WithVaultEngineTx(ctx, h.pool, h.logger, clk, func(eng *vault.EngineService) error {
 		o, e := eng.Create(ctx, userID, opID, vault.CreateInput{
 			ItemType:           itemType,
 			TitleCiphertext:    snap.GetTitle().GetCiphertext(),
@@ -287,7 +287,7 @@ func (h syncHandler) pushUpdate(ctx context.Context, userID, opID string, op *go
 	}
 
 	var out *vault.UpdateOutput
-	err = postgres.WithVaultEngineTx(ctx, h.pool, clk, func(eng *vault.EngineService) error {
+	err = postgres.WithVaultEngineTx(ctx, h.pool, h.logger, clk, func(eng *vault.EngineService) error {
 		o, e := eng.Update(ctx, userID, opID, itemID, op.GetExpectedVersion(), vault.UpdateInput{
 			TitleCiphertext:    snap.GetTitle().GetCiphertext(),
 			TitleNonce:         snap.GetTitle().GetNonce(),
@@ -327,7 +327,7 @@ func (h syncHandler) pushDelete(ctx context.Context, userID, opID string, op *go
 	}
 
 	var out *vault.DeleteOutput
-	err := postgres.WithVaultEngineTx(ctx, h.pool, clk, func(eng *vault.EngineService) error {
+	err := postgres.WithVaultEngineTx(ctx, h.pool, h.logger, clk, func(eng *vault.EngineService) error {
 		o, e := eng.Delete(ctx, userID, opID, itemID, op.GetExpectedVersion())
 		if e != nil {
 			return e

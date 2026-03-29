@@ -8,6 +8,7 @@ import (
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/prbllm/goph-keeper/internal/server/vault"
+	"go.uber.org/zap"
 )
 
 func TestWithVaultEngineTx_commitEmptyFn(t *testing.T) {
@@ -20,7 +21,7 @@ func TestWithVaultEngineTx_commitEmptyFn(t *testing.T) {
 	mock.ExpectBegin()
 	mock.ExpectCommit()
 
-	err = WithVaultEngineTx(context.Background(), db, time.Now, func(*vault.EngineService) error {
+	err = WithVaultEngineTx(context.Background(), db, zap.NewNop(), time.Now, func(*vault.EngineService) error {
 		return nil
 	})
 	if err != nil {
@@ -41,7 +42,7 @@ func TestWithVaultEngineTx_fnErrorRollsBack(t *testing.T) {
 	mock.ExpectBegin()
 	mock.ExpectRollback()
 
-	err = WithVaultEngineTx(context.Background(), db, time.Now, func(*vault.EngineService) error {
+	err = WithVaultEngineTx(context.Background(), db, zap.NewNop(), time.Now, func(*vault.EngineService) error {
 		return errors.New("boom")
 	})
 	if err == nil {
@@ -71,7 +72,7 @@ func TestWithVaultEngineTx_panicRollsBackAndRepanics(t *testing.T) {
 		}
 	}()
 
-	WithVaultEngineTx(context.Background(), db, time.Now, func(*vault.EngineService) error {
+	WithVaultEngineTx(context.Background(), db, zap.NewNop(), time.Now, func(*vault.EngineService) error {
 		panic("test panic")
 	})
 }

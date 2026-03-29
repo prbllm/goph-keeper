@@ -8,6 +8,7 @@ import (
 	"github.com/prbllm/goph-keeper/internal/server/vault"
 	"github.com/prbllm/goph-keeper/internal/server/vault/mocks"
 	"go.uber.org/mock/gomock"
+	"go.uber.org/zap"
 )
 
 func TestEngineService_Create_Idempotent(t *testing.T) {
@@ -25,7 +26,7 @@ func TestEngineService_Create_Idempotent(t *testing.T) {
 	now := time.Unix(1700000000, 0)
 	clock := func() time.Time { return now }
 
-	engine := vault.NewEngine(repo, revisions, processed, clock)
+	engine := vault.NewEngine(repo, revisions, processed, clock, zap.NewNop())
 
 	in := vault.CreateInput{
 		ItemType:        1,
@@ -100,7 +101,7 @@ func TestEngineService_Update_VersionConflict(t *testing.T) {
 	const itemID = "item-1"
 
 	now := time.Unix(1700000000, 0)
-	engine := vault.NewEngine(repo, revisions, processed, func() time.Time { return now })
+	engine := vault.NewEngine(repo, revisions, processed, func() time.Time { return now }, zap.NewNop())
 
 	processed.EXPECT().Lookup(ctx, userID, opID).Return(nil, nil)
 	repo.EXPECT().GetItem(ctx, userID, itemID).Return(&vault.Item{
@@ -138,7 +139,7 @@ func TestEngineService_Update_SuccessIncrementsVersionAndRevision(t *testing.T) 
 	const itemID = "item-1"
 
 	now := time.Unix(1700000000, 0)
-	engine := vault.NewEngine(repo, revisions, processed, func() time.Time { return now })
+	engine := vault.NewEngine(repo, revisions, processed, func() time.Time { return now }, zap.NewNop())
 
 	processed.EXPECT().Lookup(ctx, userID, opID).Return(nil, nil)
 	repo.EXPECT().GetItem(ctx, userID, itemID).Return(&vault.Item{

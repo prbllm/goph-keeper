@@ -1,3 +1,4 @@
+// Package logging provides a small factory for production zap loggers from configured level strings.
 package logging
 
 import (

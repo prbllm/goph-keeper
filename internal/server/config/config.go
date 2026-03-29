@@ -1,3 +1,5 @@
+// Package config loads server settings from environment variables: gRPC, TLS paths, Postgres, MinIO,
+// JWT, token TTLs, vault/blob limits, and upload-session cleanup. Defaults and env key names are in constants.go.
 package config
 
 import (

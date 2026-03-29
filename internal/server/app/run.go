@@ -1,3 +1,5 @@
+// Package app wires the production server: config, logging, TLS, Postgres migrations, MinIO, auth,
+// vault engine, background jobs, and the gRPC stack. Run and RunContext are the main entrypoints used by cmd/server.
 package app
 
 import (
@@ -90,6 +92,7 @@ func RunContext(ctx context.Context, onListen func(net.Addr)) error {
 		vaultRepos.Revisions(),
 		vaultRepos.ProcessedOperations(),
 		now,
+		logger,
 	)
 
 	blobRepo := postgres.NewBlobRepository(db)

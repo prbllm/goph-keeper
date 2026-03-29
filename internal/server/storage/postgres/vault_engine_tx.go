@@ -5,10 +5,11 @@ import (
 	"fmt"
 
 	"github.com/prbllm/goph-keeper/internal/server/vault"
+	"go.uber.org/zap"
 )
 
 // WithVaultEngineTx runs fn with a vault engine whose repositories share one SQL transaction.
-func WithVaultEngineTx(ctx context.Context, pool Pool, now vault.Clock, fn func(*vault.EngineService) error) (err error) {
+func WithVaultEngineTx(ctx context.Context, pool Pool, logger *zap.Logger, now vault.Clock, fn func(*vault.EngineService) error) (err error) {
 	if pool == nil {
 		return fmt.Errorf("postgres: pool is nil")
 	}
@@ -31,6 +32,7 @@ func WithVaultEngineTx(ctx context.Context, pool Pool, now vault.Clock, fn func(
 		NewRevisionLogRepository(tx),
 		NewProcessedOperationsRepository(tx),
 		now,
+		logger,
 	)
 	if err = fn(eng); err != nil {
 		return err

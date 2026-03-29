@@ -1,3 +1,4 @@
+// Package blob defines domain types and interfaces for encrypted blob uploads and object storage adapters.
 package blob
 
 import (

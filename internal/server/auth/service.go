@@ -1,3 +1,4 @@
+// Package auth implements register/login/refresh/logout use cases, JWT access tokens, and hashed refresh token storage.
 package auth
 
 import (

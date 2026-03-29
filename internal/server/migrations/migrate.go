@@ -1,3 +1,4 @@
+// Package migrations applies embedded SQL migrations to Postgres at server startup using golang-migrate.
 package migrations
 
 import (

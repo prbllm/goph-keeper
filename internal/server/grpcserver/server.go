@@ -1,3 +1,5 @@
+// Package grpcserver builds the TLS-only gRPC server: service registration, unary/stream interceptors
+// (logging, recovery, auth), and handlers for auth, vault, blob, sync, and device APIs.
 package grpcserver
 
 import (

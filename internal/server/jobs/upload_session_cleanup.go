@@ -1,3 +1,4 @@
+// Package jobs hosts background tasks such as periodic cleanup of expired blob upload sessions.
 package jobs
 
 import (
