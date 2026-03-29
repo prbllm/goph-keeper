@@ -12,11 +12,11 @@ import (
 )
 
 type fakeAuthHandlerSvc struct {
-	regErr    error
-	loginErr  error
+	regErr     error
+	loginErr   error
 	refreshErr error
-	logoutErr error
-	limits    *gophkeeperv1.Limits
+	logoutErr  error
+	limits     *gophkeeperv1.Limits
 }
 
 func (f fakeAuthHandlerSvc) Register(context.Context, auth.RegisterInput) (*auth.RegisterOutput, error) {

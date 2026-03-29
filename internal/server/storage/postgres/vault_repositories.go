@@ -283,7 +283,7 @@ WHERE user_id = $1 AND operation_id = $2`
 }
 
 var (
-	_ vault.Repository                     = (*VaultRepository)(nil)
+	_ vault.Repository                    = (*VaultRepository)(nil)
 	_ vault.RevisionLogRepository         = (*RevisionLogRepository)(nil)
 	_ vault.ProcessedOperationsRepository = (*ProcessedOperationsRepository)(nil)
 )
@@ -291,10 +291,10 @@ var (
 // VaultRepositories groups all vault-related repositories backed by a single Pool.
 // It mirrors AuthRepositories and simplifies wiring different storage implementations.
 type VaultRepositories struct {
-	db         Pool
-	vault      vault.Repository
-	revisions  vault.RevisionLogRepository
-	processed  vault.ProcessedOperationsRepository
+	db        Pool
+	vault     vault.Repository
+	revisions vault.RevisionLogRepository
+	processed vault.ProcessedOperationsRepository
 }
 
 // NewVaultRepositories builds a set of vault repositories on top of a Pool.
@@ -325,4 +325,3 @@ func (v *VaultRepositories) ProcessedOperations() vault.ProcessedOperationsRepos
 	}
 	return v.processed
 }
-

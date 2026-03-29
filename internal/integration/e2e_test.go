@@ -319,9 +319,9 @@ func TestE2E_FullStack(t *testing.T) {
 		start, err := cliBlob.Blob.StartBlobUpload(cctx, &gophkeeperv1.StartBlobUploadRequest{
 			ExpectedSize:     uint64(len(payload)),
 			ExpectedChecksum: sum[:],
-			ContentKind:    "application/octet-stream",
-			FileName:       "f.bin",
-			MimeType:       "application/octet-stream",
+			ContentKind:      "application/octet-stream",
+			FileName:         "f.bin",
+			MimeType:         "application/octet-stream",
 		})
 		if err != nil {
 			t.Fatalf("StartBlobUpload: %v", err)

@@ -193,4 +193,3 @@ func TestAuthStreamInterceptor_privateMethodWithValidToken(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
-

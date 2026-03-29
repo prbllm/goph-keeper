@@ -104,8 +104,8 @@ type CreateInput struct {
 }
 
 type CreateOutput struct {
-	ItemID        string
-	Version       uint64
+	ItemID         string
+	Version        uint64
 	ServerRevision uint64
 }
 
@@ -129,4 +129,3 @@ type DeleteOutput struct {
 	NewVersion     uint64
 	ServerRevision uint64
 }
-
