@@ -120,3 +120,111 @@ func TestSyncHandler_pushUpdate_rejectsBadItemType(t *testing.T) {
 		t.Fatalf("got %v", err)
 	}
 }
+
+func TestSyncHandler_Sync_unauthenticated(t *testing.T) {
+	t.Parallel()
+	h := syncHandler{logger: zap.NewNop(), cfg: testVaultCfg(), pool: tlsTestPool{}}
+	_, err := h.Sync(context.Background(), &gophkeeperv1.SyncRequest{})
+	st, ok := status.FromError(err)
+	if !ok || st.Code() != codes.Unauthenticated {
+		t.Fatalf("Sync: %v", err)
+	}
+}
+
+func TestSyncHandler_Sync_nilRequest(t *testing.T) {
+	t.Parallel()
+	ctx := WithAuthContext(context.Background(), "u1", "d1")
+	h := syncHandler{logger: zap.NewNop(), cfg: testVaultCfg(), pool: tlsTestPool{}}
+	_, err := h.Sync(ctx, nil)
+	st, ok := status.FromError(err)
+	if !ok || st.Code() != codes.InvalidArgument {
+		t.Fatalf("Sync: %v", err)
+	}
+}
+
+func TestSyncHandler_PushChanges_nilRequest(t *testing.T) {
+	t.Parallel()
+	ctx := WithAuthContext(context.Background(), "u1", "d1")
+	h := syncHandler{logger: zap.NewNop(), cfg: testVaultCfg(), pool: tlsTestPool{}}
+	_, err := h.PushChanges(ctx, nil)
+	st, ok := status.FromError(err)
+	if !ok || st.Code() != codes.InvalidArgument {
+		t.Fatalf("PushChanges: %v", err)
+	}
+}
+
+func TestSyncHandler_PullChanges_unauthenticated(t *testing.T) {
+	t.Parallel()
+	h := syncHandler{logger: zap.NewNop(), cfg: testVaultCfg(), pool: tlsTestPool{}}
+	_, err := h.PullChanges(context.Background(), &gophkeeperv1.PullChangesRequest{})
+	st, ok := status.FromError(err)
+	if !ok || st.Code() != codes.Unauthenticated {
+		t.Fatalf("PullChanges: %v", err)
+	}
+}
+
+func TestSyncHandler_PullChanges_nilRequest(t *testing.T) {
+	t.Parallel()
+	ctx := WithAuthContext(context.Background(), "u1", "d1")
+	h := syncHandler{logger: zap.NewNop(), cfg: testVaultCfg(), pool: tlsTestPool{}}
+	_, err := h.PullChanges(ctx, nil)
+	st, ok := status.FromError(err)
+	if !ok || st.Code() != codes.InvalidArgument {
+		t.Fatalf("PullChanges: %v", err)
+	}
+}
+
+func TestSyncHandler_PullChanges_invalidPageToken(t *testing.T) {
+	t.Parallel()
+	ctx := WithAuthContext(context.Background(), "u1", "d1")
+	h := syncHandler{logger: zap.NewNop(), cfg: testVaultCfg(), pool: tlsTestPool{}}
+	_, err := h.PullChanges(ctx, &gophkeeperv1.PullChangesRequest{SinceRevision: 1, PageToken: "not-a-number"})
+	st, ok := status.FromError(err)
+	if !ok || st.Code() != codes.InvalidArgument {
+		t.Fatalf("PullChanges: %v", err)
+	}
+}
+
+func TestSyncHandler_runPushOperations_nilEntry(t *testing.T) {
+	t.Parallel()
+	ctx := WithAuthContext(context.Background(), "u1", "d1")
+	h := syncHandler{logger: zap.NewNop(), cfg: testVaultCfg(), pool: tlsTestPool{}}
+	_, _, err := h.runPushOperations(ctx, "u1", []*gophkeeperv1.PendingOperation{nil})
+	st, ok := status.FromError(err)
+	if !ok || st.Code() != codes.InvalidArgument {
+		t.Fatalf("runPushOperations: %v", err)
+	}
+}
+
+func TestSyncHandler_runPushOperations_emptyOperationID(t *testing.T) {
+	t.Parallel()
+	ctx := WithAuthContext(context.Background(), "u1", "d1")
+	h := syncHandler{logger: zap.NewNop(), cfg: testVaultCfg(), pool: tlsTestPool{}}
+	op := &gophkeeperv1.PendingOperation{
+		OperationId:   "  ",
+		OperationType: gophkeeperv1.PendingOperationType_PENDING_OPERATION_TYPE_CREATE,
+		Snapshot: &gophkeeperv1.VaultItemSnapshot{
+			ItemType: gophkeeperv1.ItemType_ITEM_TYPE_CREDENTIAL,
+			Title:    &gophkeeperv1.EncryptedField{Ciphertext: []byte("t"), Nonce: []byte("n")},
+			Metadata: &gophkeeperv1.EncryptedField{Ciphertext: []byte("m"), Nonce: []byte("n")},
+			Payload:  &gophkeeperv1.EncryptedField{Ciphertext: []byte("p"), Nonce: []byte("n")},
+		},
+	}
+	_, _, err := h.runPushOperations(ctx, "u1", []*gophkeeperv1.PendingOperation{op})
+	st, ok := status.FromError(err)
+	if !ok || st.Code() != codes.InvalidArgument {
+		t.Fatalf("runPushOperations: %v", err)
+	}
+}
+
+func TestSyncHandler_runPushOperations_unspecifiedOperationType(t *testing.T) {
+	t.Parallel()
+	ctx := WithAuthContext(context.Background(), "u1", "d1")
+	h := syncHandler{logger: zap.NewNop(), cfg: testVaultCfg(), pool: tlsTestPool{}}
+	op := &gophkeeperv1.PendingOperation{OperationId: "op-1"}
+	_, _, err := h.runPushOperations(ctx, "u1", []*gophkeeperv1.PendingOperation{op})
+	st, ok := status.FromError(err)
+	if !ok || st.Code() != codes.InvalidArgument {
+		t.Fatalf("runPushOperations: %v", err)
+	}
+}
