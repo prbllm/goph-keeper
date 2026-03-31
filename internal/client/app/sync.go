@@ -46,8 +46,10 @@ func (a *App) Sync(ctx context.Context) error {
 	// 3. обновляем revision
 	a.SyncState.LastRevision = resp.NewServerRevision
 
-	// 4. очищаем pending (упрощённо)
-	a.SyncState.PendingOperations = nil
+	// 4. очищаем только успешные операции
+	if len(resp.Conflicts) == 0 {
+		a.SyncState.PendingOperations = nil
+	}
 
 	return a.LocalStorage.SaveSync(a.SyncState)
 }
