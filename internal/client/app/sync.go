@@ -40,7 +40,9 @@ func (a *App) Sync(ctx context.Context) error {
 
 	// 2. применяем remote changes
 	for _, ev := range resp.RemoteChanges {
-		a.applyEvent(ev)
+		if err := a.applyEvent(ev); err != nil {
+			return err
+		}
 	}
 
 	// 3. обновляем revision
@@ -57,7 +59,7 @@ func (a *App) Sync(ctx context.Context) error {
 // applyEvent применяет событие изменения к локальному хранилищу.
 // Обрабатывает создание, обновление и удаление элементов.
 // Шифрует данные перед сохранением в локальное хранилище.
-func (a *App) applyEvent(ev *gophkeeperv1.RevisionEvent) {
+func (a *App) applyEvent(ev *gophkeeperv1.RevisionEvent) error {
 	it := ev.Item
 
 	switch ev.ChangeType {
@@ -77,7 +79,9 @@ func (a *App) applyEvent(ev *gophkeeperv1.RevisionEvent) {
 			Deleted: false,
 		}
 
-		_ = a.LocalStorage.Upsert(item)
+		if err := a.LocalStorage.Upsert(item); err != nil {
+			return err
+		}
 
 	case gophkeeperv1.ChangeType_CHANGE_TYPE_DELETED:
 
@@ -87,6 +91,10 @@ func (a *App) applyEvent(ev *gophkeeperv1.RevisionEvent) {
 			Deleted: true,
 		}
 
-		_ = a.LocalStorage.Upsert(item)
+		if err := a.LocalStorage.Upsert(item); err != nil {
+			return err
+		}
 	}
+
+	return nil
 }
