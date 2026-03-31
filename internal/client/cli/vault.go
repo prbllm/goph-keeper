@@ -303,7 +303,7 @@ var updateCmd = &cobra.Command{
 	Use:     "update [id] [type] [data]",
 	Short:   "Update secret",
 	GroupID: "vault",
-	Args:    cobra.RangeArgs(3, 5),
+	Args:    cobra.RangeArgs(3, 6),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		id := args[0]
 
