@@ -30,6 +30,7 @@ var registerCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
+		defer localStorage.Close()
 
 		serverAddr, err := cmd.Flags().GetString("server")
 		if err != nil {
@@ -85,6 +86,7 @@ var loginCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
+		defer localStorage.Close()
 
 		serverAddr, err := cmd.Flags().GetString("server")
 		if err != nil {

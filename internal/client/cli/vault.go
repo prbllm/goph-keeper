@@ -82,6 +82,8 @@ var addCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
+		defer localStorage.Close()
+
 		state, err := localStorage.Load()
 		if err != nil {
 			return err
@@ -152,6 +154,8 @@ var listCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
+		defer localStorage.Close()
+
 		state, err := localStorage.Load()
 		if err != nil {
 			return err
@@ -238,6 +242,8 @@ var getCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
+		defer localStorage.Close()
+
 		state, err := localStorage.Load()
 		if err != nil {
 			return err
@@ -362,6 +368,8 @@ var updateCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
+		defer localStorage.Close()
+
 		state, err := localStorage.Load()
 		if err != nil {
 			return err
@@ -429,6 +437,8 @@ var deleteCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
+		defer localStorage.Close()
+
 		state, err := localStorage.Load()
 		if err != nil {
 			return err
@@ -493,6 +503,7 @@ var uploadCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
+		defer localStorage.Close()
 
 		state, err := localStorage.Load()
 		if err != nil {
@@ -556,6 +567,7 @@ var downloadCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
+		defer localStorage.Close()
 
 		state, err := localStorage.Load()
 		if err != nil {

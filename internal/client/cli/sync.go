@@ -29,6 +29,8 @@ var syncCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
+		defer localStorage.Close()
+
 		state, err := localStorage.Load()
 		if err != nil {
 			return err
