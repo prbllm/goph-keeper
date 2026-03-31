@@ -533,7 +533,7 @@ var uploadCmd = &cobra.Command{
 		}
 
 		if err = app.AddItem(gophkeeperv1.ItemType_ITEM_TYPE_BINARY, []byte(gophkeeperv1.ItemType_ITEM_TYPE_BINARY.String()), []byte(fileName), nil, blobID); err != nil {
-			return nil
+			return err
 		}
 
 		fmt.Println("File uploaded successfully. Pending sync...")
