@@ -1,0 +1,5 @@
+.*/
+!.github/
+.env
+bin/
+/certs/*.key
